@@ -2,14 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PEDESTRIAN_RADIUS,
+  WEATHER_CYCLE_ORDER,
   findForwardRoadPath,
   findRoadPath,
   generateProceduralCity,
+  getDefaultWeatherForLevel,
   getLevelConfig,
   getStreetPropObstacleRadius,
   getTreeObstacleRadius,
   gridToWorld,
   isDrivableTile,
+  isValidWeatherCondition,
   isWalkablePedestrianTile,
   worldToGrid,
 } from './proceduralCity';
@@ -18,9 +21,12 @@ import {
   computeRunRewards,
   createDefaultProgression,
   executeLuckySpin,
+  getConfiguredLevelWeather,
   incrementQuestProgress,
+  loadProgression,
   purchaseOrSelectTopper,
   purchaseOrSelectVehicle,
+  setConfiguredLevelWeather,
 } from './progression';
 import {
   FEVER_COMBO_THRESHOLD,
@@ -57,11 +63,14 @@ import {
   OutcomeKind,
   ParcelKind,
   RIGHT_LANE_OFFSET,
+  ShiftAtmosphere,
   SignalAxisState,
   TILE_SIZE,
   TopperId,
   VehicleId,
+  WeatherCondition,
 } from './types';
+import { computeAtmosphereWeatherPalette } from './weatherSystem';
 
 test('procedural levels 1..8 generate city-wide boulevard trees, traffic signals, right-hand traffic, and kiosks', () => {
   const seenArchetypes = new Set<string>();
@@ -1008,5 +1017,107 @@ test('45-second Autopilot Demo Director choreographs all 5 scenes, swaps fleet v
   assert.equal(triggeredTrafficClash, true, 'Scene 4 must showcase a 3D vehicle clash');
   assert.equal(triggeredShieldSave, true, 'Scene 4 must showcase the Wrench Pit-Stop shield save');
 });
+
+test('configurable per-level dynamic weather integrates with city generation, progression, atmosphere palettes, and physics grip', () => {
+  // 1. Default weather cycle across levels 1..4
+  assert.equal(getDefaultWeatherForLevel(1), WeatherCondition.MorningMist);
+  assert.equal(getDefaultWeatherForLevel(2), WeatherCondition.LightSnow);
+  assert.equal(getDefaultWeatherForLevel(3), WeatherCondition.Clear);
+  assert.equal(getDefaultWeatherForLevel(4), WeatherCondition.FjordDrizzle);
+  assert.equal(getDefaultWeatherForLevel(5), WeatherCondition.MorningMist);
+
+  assert.equal(isValidWeatherCondition(WeatherCondition.LightSnow), true);
+  assert.equal(isValidWeatherCondition('acid_rain'), false);
+
+  // 2. Per-level weather override sets LevelConfig.weather and preserves hasSunshower only for FjordDrizzle
+  const snowLv1 = getLevelConfig(1, WeatherCondition.LightSnow);
+  assert.equal(snowLv1.weather, WeatherCondition.LightSnow);
+  assert.equal(snowLv1.hasSunshower, false);
+
+  const drizzleLv1 = getLevelConfig(1, WeatherCondition.FjordDrizzle);
+  assert.equal(drizzleLv1.weather, WeatherCondition.FjordDrizzle);
+  assert.equal(drizzleLv1.hasSunshower, true);
+
+  const snowCity = generateProceduralCity(1, 12345, WeatherCondition.LightSnow);
+  const clearCity = generateProceduralCity(1, 12345, WeatherCondition.Clear);
+  assert.equal(snowCity.config.weather, WeatherCondition.LightSnow);
+  assert.equal(clearCity.config.weather, WeatherCondition.Clear);
+  // Street topology & stops remain deterministic regardless of weather override
+  assert.equal(snowCity.stops.length, clearCity.stops.length);
+  assert.deepEqual(snowCity.spawnCoord, clearCity.spawnCoord);
+
+  // 3. Progression per-level weather configuration + safe loadProgression() fallback in Node
+  let prog = createDefaultProgression();
+  assert.equal(getConfiguredLevelWeather(prog, 1), WeatherCondition.MorningMist);
+  prog = setConfiguredLevelWeather(prog, 1, WeatherCondition.LightSnow);
+  prog = setConfiguredLevelWeather(prog, 3, WeatherCondition.FjordDrizzle);
+  assert.equal(getConfiguredLevelWeather(prog, 1), WeatherCondition.LightSnow);
+  assert.equal(getConfiguredLevelWeather(prog, 2), WeatherCondition.LightSnow);
+  assert.equal(getConfiguredLevelWeather(prog, 3), WeatherCondition.FjordDrizzle);
+  const loadedFallback = loadProgression();
+  assert.deepEqual(loadedFallback.levelWeather, {});
+
+  // 4. All 12 (ShiftAtmosphere x WeatherCondition) palettes compute valid distinct settings
+  const atmospheres = [
+    ShiftAtmosphere.SunnyHarbor,
+    ShiftAtmosphere.GoldenSunset,
+    ShiftAtmosphere.TwilightNeon,
+  ];
+  for (const atm of atmospheres) {
+    const clearPal = computeAtmosphereWeatherPalette(atm, WeatherCondition.Clear);
+    const mistPal = computeAtmosphereWeatherPalette(atm, WeatherCondition.MorningMist);
+    const snowPal = computeAtmosphereWeatherPalette(atm, WeatherCondition.LightSnow);
+    const drizzlePal = computeAtmosphereWeatherPalette(atm, WeatherCondition.FjordDrizzle);
+
+    for (const w of WEATHER_CYCLE_ORDER) {
+      const pal = computeAtmosphereWeatherPalette(atm, w);
+      assert.ok(pal.fogNear > 0 && pal.fogFar > pal.fogNear, `Valid fog bounds for ${atm}/${w}`);
+      assert.equal(pal.headlightsOn, atm === ShiftAtmosphere.TwilightNeon);
+    }
+    assert.ok(mistPal.fogFar < clearPal.fogFar, `MorningMist should draw horizon fog closer than Clear (${atm})`);
+    assert.ok(snowPal.fogFar < clearPal.fogFar, `LightSnow should draw fog closer than Clear (${atm})`);
+    assert.notEqual(drizzlePal.bgHex, clearPal.bgHex, `FjordDrizzle sky should differ from Clear (${atm})`);
+  }
+
+  // 5. Road traction & braking grip adjust subtly on LightSnow and FjordDrizzle
+  const drizzleCity = generateProceduralCity(1, 42, WeatherCondition.FjordDrizzle);
+  const clearCityGrip = generateProceduralCity(1, 42, WeatherCondition.Clear);
+  const snowCityGrip = generateProceduralCity(1, 42, WeatherCondition.LightSnow);
+
+  const testAccelSpeed = (cityObj: ReturnType<typeof generateProceduralCity>) => {
+    const t = createInitialTruckState(cityObj);
+    for (let i = 0; i < 4; i++) {
+      stepTruckPhysics(t, { throttle: 1, steer: 0, wantsBoost: false }, cityObj, 0.04);
+    }
+    return t.vx;
+  };
+
+  const testBrakeResidual = (cityObj: ReturnType<typeof generateProceduralCity>) => {
+    const t = createInitialTruckState(cityObj);
+    t.vx = 7.0;
+    t.speed = 7.0;
+    for (let i = 0; i < 2; i++) {
+      stepTruckPhysics(t, { throttle: -1, steer: 0, wantsBoost: false }, cityObj, 0.04);
+    }
+    return t.vx;
+  };
+
+  const vxClear = testAccelSpeed(clearCityGrip);
+  const vxSnow = testAccelSpeed(snowCityGrip);
+  const vxDrizzle = testAccelSpeed(drizzleCity);
+  assert.ok(
+    vxClear > vxSnow && vxSnow > vxDrizzle,
+    `Dry tarmac (${vxClear.toFixed(3)}) should accelerate slightly crisper than light snow (${vxSnow.toFixed(3)}) and drizzle (${vxDrizzle.toFixed(3)})`,
+  );
+
+  const brakeClear = testBrakeResidual(clearCityGrip);
+  const brakeSnow = testBrakeResidual(snowCityGrip);
+  const brakeDrizzle = testBrakeResidual(drizzleCity);
+  assert.ok(
+    brakeClear < brakeSnow && brakeSnow < brakeDrizzle,
+    `Wet drizzle (${brakeDrizzle.toFixed(3)}) and snow (${brakeSnow.toFixed(3)}) should carry slightly more braking slide than dry tarmac (${brakeClear.toFixed(3)})`,
+  );
+});
+
 
 

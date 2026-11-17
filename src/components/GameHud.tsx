@@ -3,11 +3,15 @@ import {
   Bell,
   ClipboardCheck,
   Clock,
+  CloudFog,
+  CloudRain,
   Navigation,
   Package,
   Pause,
   RotateCcw,
   Shield,
+  Snowflake,
+  Sun,
   Timer,
   Users,
   Volume2,
@@ -16,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { MultiplayerRoomState } from '../game/multiplayerTypes';
+import { WEATHER_SPECS } from '../game/proceduralCity';
 import { resetTouchControls, touchControls } from '../game/touchControls';
 import {
   GeneratedCity,
@@ -26,6 +31,7 @@ import {
   SignalAxisState,
   TILE_SIZE,
   TileType,
+  WeatherCondition,
 } from '../game/types';
 
 export interface MinimapRemotePlayer {
@@ -59,6 +65,7 @@ interface GameHudProps {
   onOpenQuests: () => void;
   onOpenShop: () => void;
   onOpenMultiplayer?: () => void;
+  onCycleWeather?: () => void;
   onRestart: () => void;
 }
 
@@ -182,6 +189,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   onOpenQuests,
   onOpenShop,
   onOpenMultiplayer,
+  onCycleWeather,
   onRestart,
 }) => {
   const mapCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -697,6 +705,66 @@ export const GameHud: React.FC<GameHudProps> = ({
                   </span>
                 </button>
               )}
+
+              {/* Current Stage Weather Indicator / Quick-Cycle Toggle */}
+              {(() => {
+                const w = hud.weather ?? WeatherCondition.Clear;
+                const spec = WEATHER_SPECS[w];
+                const canToggle = Boolean(onCycleWeather && !multiplayerRoom);
+                const WeatherIcon =
+                  w === WeatherCondition.MorningMist
+                    ? CloudFog
+                    : w === WeatherCondition.LightSnow
+                      ? Snowflake
+                      : w === WeatherCondition.FjordDrizzle
+                        ? CloudRain
+                        : Sun;
+                const iconColor =
+                  w === WeatherCondition.LightSnow
+                    ? 'text-[#bae6fd]'
+                    : w === WeatherCondition.MorningMist
+                      ? 'text-[#cbd5e1]'
+                      : w === WeatherCondition.FjordDrizzle
+                        ? 'text-[#7dd3fc]'
+                        : 'text-[#fde047]';
+                return canToggle ? (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    data-testid="hud-weather-btn"
+                    aria-label={`Weather: ${spec.label}. Click to cycle stage weather`}
+                    title={`${spec.label} — Click to change weather for Stage ${hud.level}`}
+                    onClick={(e) => {
+                      e.currentTarget.blur();
+                      onCycleWeather?.();
+                    }}
+                    className="tactical-btn rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <WeatherIcon
+                      className={`w-3.5 h-3.5 ${iconColor}`}
+                      strokeWidth={2.1}
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline font-mono-num text-[11px] font-semibold uppercase tracking-wider text-[#f4f3ef]">
+                      {spec.shortLabel}
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    className="tactical-panel rounded-lg px-2.5 py-1.5 flex items-center gap-1.5"
+                    title={spec.label}
+                  >
+                    <WeatherIcon
+                      className={`w-3.5 h-3.5 ${iconColor}`}
+                      strokeWidth={2.1}
+                      aria-hidden="true"
+                    />
+                    <span className="hidden sm:inline font-mono-num text-[11px] font-semibold uppercase tracking-wider text-[#f4f3ef]">
+                      {spec.shortLabel}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Live Multiplayer Standings Card */}

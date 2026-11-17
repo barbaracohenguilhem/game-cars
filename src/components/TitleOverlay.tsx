@@ -1,40 +1,71 @@
 import React from 'react';
 import {
   ArrowRight,
+  CloudFog,
+  CloudRain,
   Compass,
   Package,
+  Snowflake,
+  Sun,
   Users,
   Volume2,
   VolumeX,
   Zap,
 } from 'lucide-react';
 import { pokoAudio } from '../game/audio';
+import {
+  WEATHER_CYCLE_ORDER,
+  WEATHER_SPECS,
+  getDefaultWeatherForLevel,
+} from '../game/proceduralCity';
+import { WeatherCondition } from '../game/types';
 
 interface TitleOverlayProps {
   selectedLevel?: number;
   highestUnlockedLevel?: number;
+  selectedWeather?: WeatherCondition;
   muted: boolean;
   onlineCount?: number;
   activeRoomCode?: string | null;
   onSelectLevel?: (lvl: number) => void;
+  onSelectWeather?: (weather: WeatherCondition) => void;
   onStart: () => void;
   onOpenMultiplayer?: () => void;
   onToggleMute: () => void;
 }
 
+function renderWeatherIcon(weather: WeatherCondition, active: boolean) {
+  const cls = `w-3.5 h-3.5 ${active ? 'text-[#f5f3ee]' : 'text-[#525b65]'}`;
+  switch (weather) {
+    case WeatherCondition.MorningMist:
+      return <CloudFog className={cls} strokeWidth={2.1} aria-hidden="true" />;
+    case WeatherCondition.LightSnow:
+      return <Snowflake className={cls} strokeWidth={2.1} aria-hidden="true" />;
+    case WeatherCondition.FjordDrizzle:
+      return <CloudRain className={cls} strokeWidth={2.1} aria-hidden="true" />;
+    case WeatherCondition.Clear:
+    default:
+      return <Sun className={cls} strokeWidth={2.1} aria-hidden="true" />;
+  }
+}
+
 export const TitleOverlay: React.FC<TitleOverlayProps> = ({
   selectedLevel = 1,
   highestUnlockedLevel = 1,
+  selectedWeather,
   muted,
   onlineCount = 0,
   activeRoomCode = null,
   onSelectLevel,
+  onSelectWeather,
   onStart,
   onOpenMultiplayer,
   onToggleMute,
 }) => {
   const maxStage = Math.max(1, highestUnlockedLevel);
   const stageButtons = Array.from({ length: maxStage }, (_, idx) => idx + 1);
+  const activeWeather =
+    selectedWeather ?? getDefaultWeatherForLevel(selectedLevel);
 
   return (
     <div
@@ -174,36 +205,83 @@ export const TitleOverlay: React.FC<TitleOverlayProps> = ({
           </div>
         </div>
 
-        {/* Unlocked District Stage Selector (shown once Stage 2+ is unlocked) */}
-        {maxStage > 1 && onSelectLevel && (
-          <div className="flex items-center justify-between gap-3 nordic-inset rounded-xl px-3 py-2">
-            <span className="font-mono-num text-[11px] font-medium uppercase tracking-wider text-[#525b65]">
-              Dispatch Stage
-            </span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {stageButtons.map((lvl) => {
-                const isSelected = lvl === selectedLevel;
-                return (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => {
-                      pokoAudio.playUiClick();
-                      onSelectLevel(lvl);
-                    }}
-                    className={`font-mono-num text-xs font-semibold px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-[#181d23] text-[#f5f3ee]'
-                        : 'bg-white text-[#181d23] border border-[#d5d0c5] hover:bg-[#f5f3ee]'
-                    }`}
-                  >
-                    {String(lvl).padStart(2, '0')}
-                  </button>
-                );
-              })}
+        {/* Stage & Per-Level Weather Configuration Bar */}
+        <div className="flex flex-col gap-2 nordic-inset rounded-xl px-3.5 py-2.5">
+          {maxStage > 1 && onSelectLevel && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono-num text-[11px] font-medium uppercase tracking-wider text-[#525b65]">
+                Dispatch Stage
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {stageButtons.map((lvl) => {
+                  const isSelected = lvl === selectedLevel;
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => {
+                        pokoAudio.playUiClick();
+                        onSelectLevel(lvl);
+                      }}
+                      className={`font-mono-num text-xs font-semibold px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-[#181d23] text-[#f5f3ee]'
+                          : 'bg-white text-[#181d23] border border-[#d5d0c5] hover:bg-[#f5f3ee]'
+                      }`}
+                    >
+                      {String(lvl).padStart(2, '0')}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {onSelectWeather && (
+            <div
+              className={`flex flex-wrap items-center justify-between gap-2 ${
+                maxStage > 1 && onSelectLevel
+                  ? 'pt-2 border-t border-[#d5d0c5]'
+                  : ''
+              }`}
+            >
+              <span className="font-mono-num text-[11px] font-medium uppercase tracking-wider text-[#525b65]">
+                Stage {String(selectedLevel).padStart(2, '0')} Weather
+              </span>
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label="Configure weather for selected level"
+              >
+                {WEATHER_CYCLE_ORDER.map((w) => {
+                  const spec = WEATHER_SPECS[w];
+                  const isSelected = w === activeWeather;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      data-testid={`title-weather-${w}`}
+                      aria-pressed={isSelected}
+                      title={spec.detail}
+                      onClick={() => {
+                        pokoAudio.playUiClick();
+                        onSelectWeather(w);
+                      }}
+                      className={`flex items-center gap-1.5 font-mono-num text-[11px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-[#181d23] text-[#f5f3ee]'
+                          : 'bg-white text-[#181d23] border border-[#d5d0c5] hover:bg-[#f5f3ee]'
+                      }`}
+                    >
+                      {renderWeatherIcon(w, isSelected)}
+                      <span>{spec.shortLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Unboxed Inline Control Reference */}
         <div className="flex sm:hidden items-center justify-center text-center font-mono-num text-[11px] text-[#525b65]">

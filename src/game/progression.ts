@@ -1,10 +1,15 @@
 import {
+  getDefaultWeatherForLevel,
+  isValidWeatherCondition,
+} from './proceduralCity';
+import {
   OutcomeKind,
   PlayerProgression,
   QuestItem,
   QuestKind,
   TopperId,
   VehicleId,
+  WeatherCondition,
 } from './types';
 
 export interface VehicleSpec {
@@ -174,6 +179,7 @@ export function createDefaultProgression(): PlayerProgression {
     unlockedToppers: [TopperId.Beacon],
     selectedTopper: TopperId.Beacon,
     districtStars: {},
+    levelWeather: {},
     quests: createInitialQuests(0),
     nextFreeShield: false,
   };
@@ -212,6 +218,18 @@ export function loadProgression(): PlayerProgression {
         parsed.districtStars && typeof parsed.districtStars === 'object'
           ? parsed.districtStars
           : {},
+      levelWeather: (() => {
+        const sanitized: Record<number, WeatherCondition> = {};
+        if (parsed.levelWeather && typeof parsed.levelWeather === 'object') {
+          for (const [k, v] of Object.entries(parsed.levelWeather)) {
+            const numLvl = Number(k);
+            if (Number.isFinite(numLvl) && numLvl >= 1 && isValidWeatherCondition(v)) {
+              sanitized[Math.floor(numLvl)] = v;
+            }
+          }
+        }
+        return sanitized;
+      })(),
       quests:
         Array.isArray(parsed.quests) && parsed.quests.length === 3
           ? parsed.quests
@@ -221,6 +239,32 @@ export function loadProgression(): PlayerProgression {
   } catch {
     return createDefaultProgression();
   }
+}
+
+export function getConfiguredLevelWeather(
+  prog: PlayerProgression,
+  level: number,
+): WeatherCondition {
+  const safeLevel = Math.max(1, Math.floor(level));
+  const saved = prog.levelWeather?.[safeLevel];
+  return isValidWeatherCondition(saved)
+    ? saved
+    : getDefaultWeatherForLevel(safeLevel);
+}
+
+export function setConfiguredLevelWeather(
+  prog: PlayerProgression,
+  level: number,
+  weather: WeatherCondition,
+): PlayerProgression {
+  const safeLevel = Math.max(1, Math.floor(level));
+  return {
+    ...prog,
+    levelWeather: {
+      ...prog.levelWeather,
+      [safeLevel]: weather,
+    },
+  };
 }
 
 export function saveProgression(prog: PlayerProgression): void {

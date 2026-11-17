@@ -45,10 +45,16 @@ import type { MultiplayerRoomState } from '../game/multiplayerTypes';
 import {
   findForwardRoadPath,
   generateProceduralCity,
+  getDefaultWeatherForLevel,
   gridToWorld,
   isDrivableTile,
+  isValidWeatherCondition,
   worldToGrid,
 } from '../game/proceduralCity';
+import {
+  WeatherOverlaySystem,
+  computeAtmosphereWeatherPalette,
+} from '../game/weatherSystem';
 import { VEHICLE_SPECS, computeRunRewards } from '../game/progression';
 import {
   BOOST_COOLDOWN_MAX_SEC,
@@ -110,6 +116,7 @@ import {
   TopperId,
   TruckState,
   VehicleId,
+  WeatherCondition,
 } from '../game/types';
 import { MinimapSnapshot } from './GameHud';
 
@@ -252,6 +259,7 @@ function toSafeTopperId(raw: string): TopperId {
 export interface GameCanvasProps {
   phase: GamePhase;
   activeLevel: number;
+  weatherOverride?: WeatherCondition;
   runNonce: number; // Increments on Restart or New Run
   bestScore: number;
   selectedVehicle: VehicleId;
@@ -272,6 +280,7 @@ export interface GameCanvasProps {
 export function GameCanvas({
   phase,
   activeLevel,
+  weatherOverride,
   runNonce,
   bestScore,
   selectedVehicle,
@@ -295,6 +304,7 @@ export function GameCanvas({
   // Store latest props/callbacks in refs so HUD state never recreates WebGL context!
   const phaseRef = useRef(phase);
   const levelRef = useRef(activeLevel);
+  const weatherOverrideRef = useRef<WeatherCondition | undefined>(weatherOverride);
   const bestScoreRef = useRef(bestScore);
   const vehicleRef = useRef(selectedVehicle);
   const topperRef = useRef(selectedTopper);
@@ -311,6 +321,7 @@ export function GameCanvas({
 
   phaseRef.current = phase;
   levelRef.current = activeLevel;
+  weatherOverrideRef.current = weatherOverride;
   bestScoreRef.current = bestScore;
   vehicleRef.current = selectedVehicle;
   topperRef.current = selectedTopper;
@@ -325,12 +336,15 @@ export function GameCanvas({
   onQuestEventRef.current = onQuestEvent;
   onConsumeStartShieldRef.current = onConsumeStartShield;
 
-  // Function pointers to rebuild level scene or swap cosmetics cleanly without tearing down WebGL
+  // Function pointers to rebuild level scene or swap cosmetics/weather cleanly without tearing down WebGL
   const loadLevelFnRef = useRef<((lvl: number, resetScore: boolean) => void) | null>(
     null,
   );
   const syncCosmeticsFnRef = useRef<
     ((veh: VehicleId, top: TopperId) => void) | null
+  >(null);
+  const syncWeatherFnRef = useRef<
+    ((weather: WeatherCondition) => void) | null
   >(null);
   const reconcileMpRoomFnRef = useRef<
     ((room: MultiplayerRoomState | null) => void) | null
@@ -707,11 +721,21 @@ export function GameCanvas({
     truckRig.root.add(windStreakRig.root);
     scene.add(truckRig.root);
 
+    // Persistent 3D Scandinavian Weather Overlay System (Mist Shaders, Snowfall, Fjord Drizzle)
+    const weatherSystem = new WeatherOverlaySystem();
+    scene.add(weatherSystem.root);
+
     // Level World Container (rebuilt cleanly per level)
     let levelGroup = new THREE.Group();
     scene.add(levelGroup);
 
-    let currentCity: GeneratedCity = generateProceduralCity(levelRef.current);
+    let currentCity: GeneratedCity = generateProceduralCity(
+      levelRef.current,
+      undefined,
+      weatherOverrideRef.current,
+    );
+    let activeBaseFogNear = 58;
+    let activeBaseFogFar = 126;
     let truckState: TruckState = createInitialTruckState(
       currentCity,
       vehicleRef.current,
@@ -753,7 +777,6 @@ export function GameCanvas({
     let bannerSeq = 0;
     let lastTickedSecond = -1;
     let feverTrailAccum = 0;
-    let sunshowerAccum = 0;
     let countdownState: StartCountdownState = createStartCountdownState('instant');
     let parcelWobble: ParcelStackWobbleState = createParcelStackWobbleState(
       truckState.yaw,
@@ -1140,6 +1163,7 @@ export function GameCanvas({
         level: currentCity.config.level,
         districtName: currentCity.config.districtName,
         atmosphere: currentCity.config.atmosphere,
+        weather: currentCity.config.weather,
         deliveredCount,
         totalStops: currentCity.stops.length,
         timeRemainingSec: Math.max(0, Math.ceil(timeRemainingSec)),
@@ -1189,44 +1213,35 @@ export function GameCanvas({
       });
     }
 
-    function applyAtmosphereRig(atm: ShiftAtmosphere) {
-      if (atm === ShiftAtmosphere.GoldenSunset) {
-        scene.background = new THREE.Color(0xdecbc0);
-        scene.fog = new THREE.Fog(0xdecbc0, 58, 128);
-        waterMat.color.setHex(0x3d596b);
-        sunLight.color.setHex(0xffb978);
-        sunLight.intensity = 1.64;
-        hemiLight.color.setHex(0xf7dcc4);
-        hemiLight.groundColor.setHex(0x707e6a);
-        hemiLight.intensity = 0.76;
-        rimLight.color.setHex(0xfce1b6);
-        rimLight.intensity = 0.42;
-        truckRig.headlightCones.visible = false;
-      } else if (atm === ShiftAtmosphere.TwilightNeon) {
-        scene.background = new THREE.Color(0x1b2634);
-        scene.fog = new THREE.Fog(0x1b2634, 54, 122);
-        waterMat.color.setHex(0x121b26);
-        sunLight.color.setHex(0xb8d0e4);
-        sunLight.intensity = 0.98;
-        hemiLight.color.setHex(0x4b6b88);
-        hemiLight.groundColor.setHex(0x233140);
-        hemiLight.intensity = 0.9;
-        rimLight.color.setHex(0xfbbf77);
-        rimLight.intensity = 0.4;
-        truckRig.headlightCones.visible = true;
+    function applyAtmosphereRig(
+      atm: ShiftAtmosphere,
+      weather: WeatherCondition,
+    ) {
+      const pal = computeAtmosphereWeatherPalette(atm, weather);
+      if (scene.background instanceof THREE.Color) {
+        scene.background.setHex(pal.bgHex);
       } else {
-        scene.background = new THREE.Color(0xcddbe4);
-        scene.fog = new THREE.Fog(0xcddbe4, 58, 126);
-        waterMat.color.setHex(0x4e6e82);
-        sunLight.color.setHex(0xfff6ea);
-        sunLight.intensity = 1.52;
-        hemiLight.color.setHex(0xe4eff7);
-        hemiLight.groundColor.setHex(0x7d8f76);
-        hemiLight.intensity = 0.78;
-        rimLight.color.setHex(0xd8eaf6);
-        rimLight.intensity = 0.38;
-        truckRig.headlightCones.visible = false;
+        scene.background = new THREE.Color(pal.bgHex);
       }
+      activeBaseFogNear = pal.fogNear;
+      activeBaseFogFar = pal.fogFar;
+      if (scene.fog instanceof THREE.Fog) {
+        scene.fog.color.setHex(pal.fogHex);
+        scene.fog.near = pal.fogNear;
+        scene.fog.far = pal.fogFar;
+      } else {
+        scene.fog = new THREE.Fog(pal.fogHex, pal.fogNear, pal.fogFar);
+      }
+      waterMat.color.setHex(pal.waterHex);
+      sunLight.color.setHex(pal.sunColorHex);
+      sunLight.intensity = pal.sunIntensity;
+      hemiLight.color.setHex(pal.hemiSkyHex);
+      hemiLight.groundColor.setHex(pal.hemiGroundHex);
+      hemiLight.intensity = pal.hemiIntensity;
+      rimLight.color.setHex(pal.rimHex);
+      rimLight.intensity = pal.rimIntensity;
+      truckRig.headlightCones.visible = pal.headlightsOn;
+      weatherSystem.applyWeatherStyle(weather, atm);
     }
 
     function buildCityScene(lvl: number, resetScore: boolean) {
@@ -1239,7 +1254,20 @@ export function GameCanvas({
           mpRoomRef.current.status === 'finished')
           ? mpRoomRef.current
           : null;
-      currentCity = generateProceduralCity(lvl, activeMpRoom?.seed);
+      const roomWeather =
+        activeMpRoom && isValidWeatherCondition(activeMpRoom.weather)
+          ? activeMpRoom.weather
+          : undefined;
+      const effectiveWeather =
+        roomWeather ??
+        (!demoState.active && lvl === levelRef.current
+          ? weatherOverrideRef.current
+          : undefined);
+      currentCity = generateProceduralCity(
+        lvl,
+        activeMpRoom?.seed,
+        effectiveWeather,
+      );
       const grantShield =
         !demoState.active &&
         startShieldRef.current &&
@@ -1275,7 +1303,10 @@ export function GameCanvas({
       }
       truckRig.setVehicleStyle(activeVeh);
       truckRig.setTopper(activeTop);
-      applyAtmosphereRig(currentCity.config.atmosphere);
+      applyAtmosphereRig(
+        currentCity.config.atmosphere,
+        currentCity.config.weather,
+      );
       pokoAudio.setFeverMode(false);
 
       if (resetScore) {
@@ -1833,6 +1864,17 @@ export function GameCanvas({
     loadLevelFnRef.current = (lvl: number, resetScore: boolean) => {
       demoState = createDemoDirectorState();
       buildCityScene(lvl, resetScore);
+    };
+    syncWeatherFnRef.current = (nextWeather: WeatherCondition) => {
+      if (demoState.active) return;
+      const safeW = isValidWeatherCondition(nextWeather)
+        ? nextWeather
+        : getDefaultWeatherForLevel(currentCity.config.level);
+      currentCity.config.weather = safeW;
+      currentCity.config.hasSunshower =
+        safeW === WeatherCondition.FjordDrizzle;
+      applyAtmosphereRig(currentCity.config.atmosphere, safeW);
+      emitHudSnapshot();
     };
     syncCosmeticsFnRef.current = (veh: VehicleId, top: TopperId) => {
       if (demoState.active) return;
@@ -3229,20 +3271,6 @@ export function GameCanvas({
               );
             }
           }
-          if (currentCity.config.hasSunshower) {
-            sunshowerAccum += simDt;
-            if (sunshowerAccum > 0.14) {
-              sunshowerAccum = 0;
-              spawnParticleBurst(
-                truckState.x + (Math.random() - 0.5) * 14,
-                3.2,
-                truckState.z + (Math.random() - 0.5) * 14,
-                2,
-                [0xcbd5e1, 0x94a3b8],
-                0.35,
-              );
-            }
-          }
 
           // Multiplayer Live Telemetry Broadcast, Van-to-Van Bumper Physics & Field Tow Repair
           const inLiveMpShift =
@@ -3478,17 +3506,9 @@ export function GameCanvas({
         const swoopA = Math.min(countdownState.swoopAlpha, 1 - demoZoomOut);
         // Keep fog pushed back during high Bird's-Eye overview so the entire miniature island sparkles crisply!
         if (scene.fog instanceof THREE.Fog) {
-          const baseFogNear =
-            currentCity.config.atmosphere === ShiftAtmosphere.TwilightNeon
-              ? 54
-              : 58;
-          const baseFogFar =
-            currentCity.config.atmosphere === ShiftAtmosphere.TwilightNeon
-              ? 122
-              : 128;
           const ovwFactor = 1 - swoopA;
-          scene.fog.near = baseFogNear + ovwFactor * 98;
-          scene.fog.far = baseFogFar + ovwFactor * 165;
+          scene.fog.near = activeBaseFogNear + ovwFactor * 98;
+          scene.fog.far = activeBaseFogFar + ovwFactor * 165;
         }
 
         if (swoopA < 0.999) {
@@ -4207,6 +4227,15 @@ export function GameCanvas({
         }
       }
 
+      weatherSystem.update(
+        dt,
+        visualClock,
+        camLookTarget.x,
+        camLookTarget.z,
+        currentCity.config.weather,
+        currentCity.config.atmosphere,
+      );
+
       renderer.render(scene, camera);
 
       if (isSoftwareGl) {
@@ -4254,6 +4283,7 @@ export function GameCanvas({
       }
       Object.values(sharedGeos).forEach((g) => g.dispose());
       Object.values(sharedMats).forEach((m) => m.dispose());
+      weatherSystem.dispose();
       waterGeo.dispose();
       waterMat.dispose();
       textures.dispose();
@@ -4289,6 +4319,15 @@ export function GameCanvas({
       loadLevelFnRef.current?.(activeLevel, resetScore);
     }
   }, [activeLevel, runNonce, activeMpSeed]);
+
+  // Apply per-level weather updates live to sky, fog, lighting, and 3D overlays
+  const effectiveWeather =
+    multiplayerRoom && isValidWeatherCondition(multiplayerRoom.weather)
+      ? multiplayerRoom.weather
+      : weatherOverride ?? getDefaultWeatherForLevel(activeLevel);
+  useEffect(() => {
+    syncWeatherFnRef.current?.(effectiveWeather);
+  }, [effectiveWeather]);
 
   // Reconcile remote 3D couriers whenever room players/cosmetics/callsigns update!
   useEffect(() => {

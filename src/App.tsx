@@ -17,17 +17,23 @@ import {
   multiplayerClient,
   readInitialRoomFromUrl,
 } from './game/multiplayerClient';
-import { getLevelConfig } from './game/proceduralCity';
+import {
+  WEATHER_CYCLE_ORDER,
+  getLevelConfig,
+  isValidWeatherCondition,
+} from './game/proceduralCity';
 import {
   SpinWheelSlice,
   VEHICLE_SPECS,
   claimQuest,
   executeLuckySpin,
+  getConfiguredLevelWeather,
   incrementQuestProgress,
   loadProgression,
   purchaseOrSelectTopper,
   purchaseOrSelectVehicle,
   saveProgression,
+  setConfiguredLevelWeather,
 } from './game/progression';
 import {
   GamePhase,
@@ -39,6 +45,7 @@ import {
   RunSnapshot,
   TopperId,
   VehicleId,
+  WeatherCondition,
 } from './game/types';
 
 function readInitialPhase(): GamePhase {
@@ -54,11 +61,24 @@ function readInitialLevel(): number {
   return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
 }
 
+function readInitialWeatherParam(): WeatherCondition | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('weather');
+  return isValidWeatherCondition(raw) ? raw : null;
+}
+
 export default function App() {
   const [phase, setPhase] = useState<GamePhase>(readInitialPhase);
   const [activeLevel, setActiveLevel] = useState<number>(readInitialLevel);
-  const [progression, setProgression] =
-    useState<PlayerProgression>(loadProgression);
+  const [progression, setProgression] = useState<PlayerProgression>(() => {
+    const base = loadProgression();
+    const urlWeather = readInitialWeatherParam();
+    if (urlWeather) {
+      return setConfiguredLevelWeather(base, readInitialLevel(), urlWeather);
+    }
+    return base;
+  });
   const [highestUnlockedLevel, setHighestUnlockedLevel] = useState<number>(() => {
     const savedProg = loadProgression();
     const maxStarLvl = Object.keys(savedProg.districtStars).reduce(
@@ -211,7 +231,12 @@ export default function App() {
     };
   }, []);
 
-  const initialCfg = getLevelConfig(activeLevel);
+  const activeLevelWeather: WeatherCondition =
+    mpState.room && isValidWeatherCondition(mpState.room.weather)
+      ? mpState.room.weather
+      : getConfiguredLevelWeather(progression, activeLevel);
+
+  const initialCfg = getLevelConfig(activeLevel, activeLevelWeather);
   const initialVehSpec =
     VEHICLE_SPECS[progression.selectedVehicle] ??
     VEHICLE_SPECS[VehicleId.ClassicVan];
@@ -220,6 +245,7 @@ export default function App() {
     level: initialCfg.level,
     districtName: initialCfg.districtName,
     atmosphere: initialCfg.atmosphere,
+    weather: initialCfg.weather,
     deliveredCount: 0,
     totalStops: initialCfg.stopCount,
     timeRemainingSec: initialCfg.timeLimitSec,
@@ -391,6 +417,24 @@ export default function App() {
     setProgression((prev) => purchaseOrSelectTopper(prev, id).next);
   }, []);
 
+  const handleSelectLevelWeather = useCallback(
+    (level: number, weather: WeatherCondition) => {
+      setProgression((prev) => setConfiguredLevelWeather(prev, level, weather));
+    },
+    [],
+  );
+
+  const handleCycleCurrentWeather = useCallback(() => {
+    pokoAudio.playUiClick();
+    setProgression((prev) => {
+      const current = getConfiguredLevelWeather(prev, activeLevel);
+      const idx = WEATHER_CYCLE_ORDER.indexOf(current);
+      const next =
+        WEATHER_CYCLE_ORDER[(idx + 1) % WEATHER_CYCLE_ORDER.length];
+      return setConfiguredLevelWeather(prev, activeLevel, next);
+    });
+  }, [activeLevel]);
+
   const handleClaimQuest = useCallback((questId: string) => {
     setProgression((prev) => claimQuest(prev, questId));
   }, []);
@@ -553,6 +597,7 @@ export default function App() {
       <GameCanvas
         phase={effectiveCanvasPhase}
         activeLevel={activeLevel}
+        weatherOverride={activeLevelWeather}
         runNonce={runNonce}
         bestScore={bestScore}
         selectedVehicle={progression.selectedVehicle}
@@ -574,10 +619,14 @@ export default function App() {
         <TitleOverlay
           selectedLevel={activeLevel}
           highestUnlockedLevel={highestUnlockedLevel}
+          selectedWeather={activeLevelWeather}
           muted={muted}
           onlineCount={mpState.onlineCount}
           activeRoomCode={mpState.room?.roomId ?? null}
           onSelectLevel={(lvl) => setActiveLevel(lvl)}
+          onSelectWeather={(weather) =>
+            handleSelectLevelWeather(activeLevel, weather)
+          }
           onStart={() => startPlaying(activeLevel)}
           onOpenMultiplayer={() => {
             pokoAudio.playUiClick();
@@ -624,6 +673,7 @@ export default function App() {
             setQuestsOpen(false);
             setMpModalOpen(true);
           }}
+          onCycleWeather={handleCycleCurrentWeather}
           onRestart={handleRestart}
         />
       )}
@@ -675,6 +725,7 @@ export default function App() {
         selectedVehicle={progression.selectedVehicle}
         selectedTopper={progression.selectedTopper}
         preferredLevel={activeLevel}
+        preferredWeather={activeLevelWeather}
         onOpenShop={() => {
           setMpModalOpen(false);
           setShopOpen(true);

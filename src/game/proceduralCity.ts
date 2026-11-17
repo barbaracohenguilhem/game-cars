@@ -31,8 +31,70 @@ import {
   TrafficSignal,
   TreeProp,
   VIPRole,
+  WeatherCondition,
   WorldPos,
 } from './types';
+
+export const WEATHER_CYCLE_ORDER: WeatherCondition[] = [
+  WeatherCondition.Clear,
+  WeatherCondition.MorningMist,
+  WeatherCondition.LightSnow,
+  WeatherCondition.FjordDrizzle,
+];
+
+export interface WeatherSpec {
+  id: WeatherCondition;
+  label: string;
+  shortLabel: string;
+  detail: string;
+}
+
+export const WEATHER_SPECS: Record<WeatherCondition, WeatherSpec> = {
+  [WeatherCondition.Clear]: {
+    id: WeatherCondition.Clear,
+    label: 'Clear Sky',
+    shortLabel: 'Clear',
+    detail: 'Crisp Nordic daylight visibility',
+  },
+  [WeatherCondition.MorningMist]: {
+    id: WeatherCondition.MorningMist,
+    label: 'Morning Mist',
+    shortLabel: 'Mist',
+    detail: 'Low fjord vapor & softened horizon',
+  },
+  [WeatherCondition.LightSnow]: {
+    id: WeatherCondition.LightSnow,
+    label: 'Light Snow',
+    shortLabel: 'Snow',
+    detail: 'Gentle Nordic snowfall & crisp air',
+  },
+  [WeatherCondition.FjordDrizzle]: {
+    id: WeatherCondition.FjordDrizzle,
+    label: 'Fjord Drizzle',
+    shortLabel: 'Drizzle',
+    detail: 'Coastal rain & slick cobbles',
+  },
+};
+
+export function isValidWeatherCondition(raw: unknown): raw is WeatherCondition {
+  return (
+    raw === WeatherCondition.Clear ||
+    raw === WeatherCondition.MorningMist ||
+    raw === WeatherCondition.LightSnow ||
+    raw === WeatherCondition.FjordDrizzle
+  );
+}
+
+export function getDefaultWeatherForLevel(level: number): WeatherCondition {
+  const safeLevel = Math.max(1, Math.floor(level || 1));
+  const defaults: WeatherCondition[] = [
+    WeatherCondition.MorningMist,
+    WeatherCondition.LightSnow,
+    WeatherCondition.Clear,
+    WeatherCondition.FjordDrizzle,
+  ];
+  return defaults[(safeLevel - 1) % defaults.length];
+}
 
 export function createRng(seed: number): () => number {
   let a = seed >>> 0;
@@ -103,7 +165,10 @@ function makeAppearance(rng: () => number, overrideTop?: number, overrideAccent?
   };
 }
 
-export function getLevelConfig(level: number): LevelConfig {
+export function getLevelConfig(
+  level: number,
+  weatherOverride?: WeatherCondition,
+): LevelConfig {
   const safeLevel = Math.max(1, Math.floor(level));
   const themeEntry = DISTRICT_THEMES[(safeLevel - 1) % DISTRICT_THEMES.length];
   const gridSize = safeLevel === 1 ? 15 : safeLevel <= 3 ? 17 : 19;
@@ -117,13 +182,17 @@ export function getLevelConfig(level: number): LevelConfig {
     ShiftAtmosphere.TwilightNeon,
   ];
   const atmosphere = atmosCycle[(safeLevel - 1) % atmosCycle.length];
-  const hasSunshower = safeLevel >= 4 && safeLevel % 2 === 0;
+  const weather = isValidWeatherCondition(weatherOverride)
+    ? weatherOverride
+    : getDefaultWeatherForLevel(safeLevel);
+  const hasSunshower = weather === WeatherCondition.FjordDrizzle;
 
   return {
     level: safeLevel,
     districtName: themeEntry.name,
     archetype: themeEntry.archetype,
     atmosphere,
+    weather,
     hasSunshower,
     gridSize,
     stopCount: finalStops,
@@ -450,8 +519,9 @@ function carveRoadLine(
 export function generateProceduralCity(
   level: number,
   customSeed?: number,
+  weatherOverride?: WeatherCondition,
 ): GeneratedCity {
-  const config = getLevelConfig(level);
+  const config = getLevelConfig(level, weatherOverride);
   const seed = customSeed ?? (level * 9173 + 214747);
   const rng = createRng(seed);
 

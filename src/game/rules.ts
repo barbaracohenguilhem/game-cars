@@ -34,6 +34,7 @@ import {
   TruckState,
   VIPRole,
   VehicleId,
+  WeatherCondition,
   WorldPos,
 } from './types';
 
@@ -472,7 +473,13 @@ export function stepTruckPhysics(
     effThrottle = 0.68;
   }
 
-  const wetGripMult = city.config.hasSunshower ? 0.86 : 1.0;
+  const wetGripMult =
+    city.config.weather === WeatherCondition.FjordDrizzle ||
+    city.config.hasSunshower
+      ? 0.86
+      : city.config.weather === WeatherCondition.LightSnow
+        ? 0.92
+        : 1.0;
 
   if (isBraking) {
     truck.boostTimer = 0;

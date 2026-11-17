@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   Check,
+  CloudFog,
+  CloudRain,
   Copy,
   Globe,
   Lock,
   LogOut,
   Play,
   Radio,
+  Snowflake,
+  Sun,
   Users,
   X,
 } from 'lucide-react';
@@ -15,8 +19,10 @@ import {
   MultiplayerClientSnapshot,
   multiplayerClient,
 } from '../game/multiplayerClient';
+import type { MultiplayerWeatherCondition } from '../game/multiplayerTypes';
+import { WEATHER_CYCLE_ORDER, WEATHER_SPECS } from '../game/proceduralCity';
 import { TOPPER_SPECS, VEHICLE_SPECS } from '../game/progression';
-import { TopperId, VehicleId } from '../game/types';
+import { TopperId, VehicleId, WeatherCondition } from '../game/types';
 
 interface MultiplayerModalProps {
   open: boolean;
@@ -24,6 +30,7 @@ interface MultiplayerModalProps {
   selectedVehicle: VehicleId;
   selectedTopper: TopperId;
   preferredLevel: number;
+  preferredWeather?: WeatherCondition;
   onOpenShop: () => void;
   onEnterActiveShift: () => void;
   onClose: () => void;
@@ -35,6 +42,7 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
   selectedVehicle,
   selectedTopper,
   preferredLevel,
+  preferredWeather,
   onOpenShop,
   onEnterActiveShift,
   onClose,
@@ -222,6 +230,7 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
                     preferredLevel,
                     selectedVehicle,
                     selectedTopper,
+                    preferredWeather as MultiplayerWeatherCondition | undefined,
                   );
                 }}
                 className="btn-graphite rounded-xl p-3.5 flex flex-col items-start gap-1 cursor-pointer text-left"
@@ -247,6 +256,7 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
                     preferredLevel,
                     selectedVehicle,
                     selectedTopper,
+                    preferredWeather as MultiplayerWeatherCondition | undefined,
                   );
                 }}
                 className="btn-stone rounded-xl p-3.5 flex flex-col items-start gap-1 cursor-pointer text-left"
@@ -397,38 +407,84 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
                 </button>
               </div>
 
-              {/* District Stage Picker (Host editable, live synced) */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-[#eae6dd]">
-                <div className="text-xs text-[#525b65]">
-                  District:{' '}
-                  <strong className="font-display font-semibold text-[#181d23]">
-                    Stage {String(room.level).padStart(2, '0')} ·{' '}
-                    {room.districtName}
-                  </strong>{' '}
-                  <span className="font-mono-num text-[11px]">
-                    ({room.totalStops} Stops · {room.timeLimitSec}s)
-                  </span>
+              {/* District Stage & Weather Picker (Host editable, live synced) */}
+              <div className="flex flex-col gap-2 pt-2.5 border-t border-[#eae6dd]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs text-[#525b65]">
+                    District:{' '}
+                    <strong className="font-display font-semibold text-[#181d23]">
+                      Stage {String(room.level).padStart(2, '0')} ·{' '}
+                      {room.districtName}
+                    </strong>{' '}
+                    <span className="font-mono-num text-[11px]">
+                      ({room.totalStops} Stops · {room.timeLimitSec}s ·{' '}
+                      {WEATHER_SPECS[room.weather as WeatherCondition]?.shortLabel ??
+                        'Mist'}
+                      )
+                    </span>
+                  </div>
+
+                  {isHost && room.status !== 'playing' && (
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => {
+                            pokoAudio.playUiClick();
+                            multiplayerClient.setRoomLevel(lvl);
+                          }}
+                          className={`font-mono-num text-[11px] font-semibold px-2 py-1 rounded-md cursor-pointer transition-colors ${
+                            room.level === lvl
+                              ? 'bg-[#181d23] text-[#f5f3ee]'
+                              : 'bg-[#eae6dd] text-[#525b65] hover:text-[#181d23]'
+                          }`}
+                        >
+                          {String(lvl).padStart(2, '0')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {isHost && room.status !== 'playing' && (
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5, 6].map((lvl) => (
-                      <button
-                        key={lvl}
-                        type="button"
-                        onClick={() => {
-                          pokoAudio.playUiClick();
-                          multiplayerClient.setRoomLevel(lvl);
-                        }}
-                        className={`font-mono-num text-[11px] font-semibold px-2 py-1 rounded-md cursor-pointer transition-colors ${
-                          room.level === lvl
-                            ? 'bg-[#181d23] text-[#f5f3ee]'
-                            : 'bg-[#eae6dd] text-[#525b65] hover:text-[#181d23]'
-                        }`}
-                      >
-                        {String(lvl).padStart(2, '0')}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono-num text-[10.5px] uppercase tracking-wider text-[#525b65]">
+                      Room Weather
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {WEATHER_CYCLE_ORDER.map((w) => {
+                        const isSel = room.weather === w;
+                        const WIcon =
+                          w === WeatherCondition.MorningMist
+                            ? CloudFog
+                            : w === WeatherCondition.LightSnow
+                              ? Snowflake
+                              : w === WeatherCondition.FjordDrizzle
+                                ? CloudRain
+                                : Sun;
+                        return (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => {
+                              pokoAudio.playUiClick();
+                              multiplayerClient.setRoomWeather(
+                                w as MultiplayerWeatherCondition,
+                              );
+                            }}
+                            className={`flex items-center gap-1 font-mono-num text-[11px] font-semibold px-2 py-1 rounded-md cursor-pointer transition-colors ${
+                              isSel
+                                ? 'bg-[#181d23] text-[#f5f3ee]'
+                                : 'bg-[#eae6dd] text-[#525b65] hover:text-[#181d23]'
+                            }`}
+                          >
+                            <WIcon className="w-3 h-3" strokeWidth={2.1} aria-hidden="true" />
+                            <span>{WEATHER_SPECS[w].shortLabel}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

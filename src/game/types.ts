@@ -23,6 +23,13 @@ export enum ShiftAtmosphere {
   TwilightNeon = 'twilight_neon',
 }
 
+export enum WeatherCondition {
+  Clear = 'clear',
+  MorningMist = 'morning_mist',
+  LightSnow = 'light_snow',
+  FjordDrizzle = 'fjord_drizzle',
+}
+
 export enum VehicleId {
   ClassicVan = 'classic_van',
   KeiTruck = 'kei_truck',
@@ -374,6 +381,7 @@ export interface LevelConfig {
   districtName: string;
   archetype: CityArchetype;
   atmosphere: ShiftAtmosphere;
+  weather: WeatherCondition;
   hasSunshower: boolean;
   gridSize: number; // Interior playable city grid (15, 17, 19)
   stopCount: number;
@@ -479,6 +487,7 @@ export interface PlayerProgression {
   unlockedToppers: TopperId[];
   selectedTopper: TopperId;
   districtStars: Record<number, number>; // level -> 1..3 stars
+  levelWeather: Record<number, WeatherCondition>; // per-level configured weather
   quests: QuestItem[];
   nextFreeShield: boolean;
 }
@@ -513,6 +522,7 @@ export interface HudState {
   level: number;
   districtName: string;
   atmosphere: ShiftAtmosphere;
+  weather: WeatherCondition;
   deliveredCount: number;
   totalStops: number;
   timeRemainingSec: number;

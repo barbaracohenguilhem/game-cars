@@ -13,6 +13,7 @@ import type {
   MultiplayerRoomStatus,
   MultiplayerRoomSummary,
   MultiplayerStanding,
+  MultiplayerWeatherCondition,
   ServerWsMessage,
 } from './src/game/multiplayerTypes.ts';
 
@@ -45,11 +46,39 @@ const COURIER_COLORS = [
 
 const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+const DEFAULT_WEATHER_CYCLE: MultiplayerWeatherCondition[] = [
+  'morning_mist',
+  'light_snow',
+  'clear',
+  'fjord_drizzle',
+];
+
+function getDefaultWeatherForLevelServer(level: number): MultiplayerWeatherCondition {
+  const safeLevel = Math.max(1, Math.floor(level || 1));
+  return DEFAULT_WEATHER_CYCLE[(safeLevel - 1) % DEFAULT_WEATHER_CYCLE.length];
+}
+
+function sanitizeWeather(
+  raw: unknown,
+  fallbackLevel: number,
+): MultiplayerWeatherCondition {
+  if (
+    raw === 'clear' ||
+    raw === 'morning_mist' ||
+    raw === 'light_snow' ||
+    raw === 'fjord_drizzle'
+  ) {
+    return raw;
+  }
+  return getDefaultWeatherForLevelServer(fallbackLevel);
+}
+
 function computeDistrictMeta(level: number): {
   safeLevel: number;
   districtName: string;
   stopCount: number;
   timeLimitSec: number;
+  defaultWeather: MultiplayerWeatherCondition;
 } {
   const safeLevel = Math.max(1, Math.min(20, Math.floor(level || 1)));
   const districtName =
@@ -58,7 +87,8 @@ function computeDistrictMeta(level: number): {
   const stopCount = Math.min(9, 3 + safeLevel);
   const baseTime = 78 + stopCount * 9 - Math.min(22, (safeLevel - 1) * 3);
   const timeLimitSec = Math.max(60, baseTime);
-  return { safeLevel, districtName, stopCount, timeLimitSec };
+  const defaultWeather = getDefaultWeatherForLevelServer(safeLevel);
+  return { safeLevel, districtName, stopCount, timeLimitSec, defaultWeather };
 }
 
 function sanitizeCallsign(raw: unknown): string {
@@ -132,6 +162,7 @@ interface ServerRoom {
   status: MultiplayerRoomStatus;
   level: number;
   districtName: string;
+  weather: MultiplayerWeatherCondition;
   seed: number;
   totalStops: number;
   activeStopIndex: number;
@@ -210,6 +241,7 @@ function serializeRoomState(room: ServerRoom): MultiplayerRoomState {
     status: room.status,
     level: room.level,
     districtName: room.districtName,
+    weather: room.weather,
     seed: room.seed,
     totalStops: room.totalStops,
     activeStopIndex: room.activeStopIndex,
@@ -234,6 +266,7 @@ function getPublicRoomSummaries(): MultiplayerRoomSummary[] {
       status: room.status,
       level: room.level,
       districtName: room.districtName,
+      weather: room.weather,
       playerCount: room.players.size,
       maxPlayers: MAX_PLAYERS_PER_ROOM,
       hostCallsign: host?.callsign ?? 'DISPATCH',
@@ -283,6 +316,7 @@ function createServerRoom(
   hostId: string,
   isPublic: boolean,
   level: number,
+  requestedWeather?: unknown,
 ): ServerRoom {
   const meta = computeDistrictMeta(level);
   const roomId = generateRoomCode();
@@ -293,6 +327,10 @@ function createServerRoom(
     status: 'lobby',
     level: meta.safeLevel,
     districtName: meta.districtName,
+    weather:
+      requestedWeather !== undefined
+        ? sanitizeWeather(requestedWeather, meta.safeLevel)
+        : meta.defaultWeather,
     seed: generateMatchSeed(),
     totalStops: meta.stopCount,
     activeStopIndex: 1,
@@ -400,12 +438,21 @@ function joinRoomWithPlayer(
   broadcastRoomDirectory();
 }
 
-function launchRoomMatch(room: ServerRoom, requestedLevel?: number): void {
+function launchRoomMatch(
+  room: ServerRoom,
+  requestedLevel?: number,
+  requestedWeather?: unknown,
+): void {
   const nextLvl = requestedLevel ?? room.level;
   const meta = computeDistrictMeta(nextLvl);
 
   room.level = meta.safeLevel;
   room.districtName = meta.districtName;
+  if (requestedWeather !== undefined) {
+    room.weather = sanitizeWeather(requestedWeather, meta.safeLevel);
+  } else if (requestedLevel !== undefined && requestedLevel !== room.level) {
+    room.weather = meta.defaultWeather;
+  }
   room.seed = generateMatchSeed();
   room.totalStops = meta.stopCount;
   room.activeStopIndex = 1;
@@ -497,7 +544,19 @@ async function startServer() {
   });
 
   const httpServer = http.createServer(app);
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({ noServer: true });
+
+  httpServer.on('upgrade', (req, socket, head) => {
+    const pathname = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`,
+    ).pathname;
+    if (pathname === '/ws') {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    }
+  });
 
   wss.on('connection', (ws: WebSocket) => {
     const meta: ConnectedSocketMeta = {
@@ -590,7 +649,12 @@ async function startServer() {
               ? msg.clientId.slice(0, 40)
               : 'c_' + Math.random().toString(36).slice(2, 10);
           meta.clientId = cid;
-          const room = createServerRoom(cid, Boolean(msg.isPublic), msg.level);
+          const room = createServerRoom(
+            cid,
+            Boolean(msg.isPublic),
+            msg.level,
+            msg.weather,
+          );
           joinRoomWithPlayer(
             room,
             meta,
@@ -629,6 +693,7 @@ async function startServer() {
               status: 'lobby',
               level: dMeta.safeLevel,
               districtName: dMeta.districtName,
+              weather: dMeta.defaultWeather,
               seed: generateMatchSeed(),
               totalStops: dMeta.stopCount,
               activeStopIndex: 1,
@@ -712,9 +777,28 @@ async function startServer() {
           const dMeta = computeDistrictMeta(msg.level);
           room.level = dMeta.safeLevel;
           room.districtName = dMeta.districtName;
+          room.weather =
+            msg.weather !== undefined
+              ? sanitizeWeather(msg.weather, dMeta.safeLevel)
+              : dMeta.defaultWeather;
           room.totalStops = dMeta.stopCount;
           room.timeLimitSec = dMeta.timeLimitSec;
           room.timeRemainingSec = dMeta.timeLimitSec;
+          broadcastToRoom(room, {
+            type: 'room:state',
+            room: serializeRoomState(room),
+          });
+          broadcastRoomDirectory();
+          break;
+        }
+
+        case 'room:set_weather': {
+          if (!meta.roomId) return;
+          const room = rooms.get(meta.roomId);
+          if (!room || room.hostId !== meta.clientId || room.status === 'playing') {
+            return;
+          }
+          room.weather = sanitizeWeather(msg.weather, room.level);
           broadcastToRoom(room, {
             type: 'room:state',
             room: serializeRoomState(room),
@@ -727,7 +811,7 @@ async function startServer() {
           if (!meta.roomId) return;
           const room = rooms.get(meta.roomId);
           if (!room || room.hostId !== meta.clientId) return;
-          launchRoomMatch(room, msg.level);
+          launchRoomMatch(room, msg.level, msg.weather);
           break;
         }
 
@@ -958,7 +1042,11 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+        ws: { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

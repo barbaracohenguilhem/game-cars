@@ -4,6 +4,7 @@ import type {
   MultiplayerPlayerTelemetry,
   MultiplayerRoomState,
   MultiplayerRoomSummary,
+  MultiplayerWeatherCondition,
   ServerWsMessage,
 } from './multiplayerTypes';
 
@@ -454,6 +455,7 @@ class MultiplayerClientManager {
     level: number,
     vehicleId: string,
     topperId: string,
+    weather?: MultiplayerWeatherCondition,
   ): void {
     this.lastVehicleId = vehicleId;
     this.lastTopperId = topperId;
@@ -465,6 +467,7 @@ class MultiplayerClientManager {
       topperId,
       isPublic,
       level,
+      weather,
     });
   }
 
@@ -502,19 +505,35 @@ class MultiplayerClientManager {
     });
   }
 
-  public setRoomLevel(level: number): void {
+  public setRoomLevel(
+    level: number,
+    weather?: MultiplayerWeatherCondition,
+  ): void {
     if (!this.snapshot.room) return;
     this.sendRaw({
       type: 'room:set_level',
       level,
+      weather,
     });
   }
 
-  public startMatch(level?: number): void {
+  public setRoomWeather(weather: MultiplayerWeatherCondition): void {
+    if (!this.snapshot.room) return;
+    this.sendRaw({
+      type: 'room:set_weather',
+      weather,
+    });
+  }
+
+  public startMatch(
+    level?: number,
+    weather?: MultiplayerWeatherCondition,
+  ): void {
     if (!this.snapshot.room) return;
     this.sendRaw({
       type: 'match:start',
       level,
+      weather,
     });
   }
 

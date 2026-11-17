@@ -8,6 +8,12 @@ export type MultiplayerRoomStatus = 'lobby' | 'playing' | 'finished';
 
 export type MultiplayerOutcome = 'none' | 'victory' | 'out_of_time';
 
+export type MultiplayerWeatherCondition =
+  | 'clear'
+  | 'morning_mist'
+  | 'light_snow'
+  | 'fjord_drizzle';
+
 export interface MultiplayerPlayerTelemetry {
   x: number;
   y: number;
@@ -47,6 +53,7 @@ export interface MultiplayerRoomSummary {
   status: MultiplayerRoomStatus;
   level: number;
   districtName: string;
+  weather: MultiplayerWeatherCondition;
   playerCount: number;
   maxPlayers: number;
   hostCallsign: string;
@@ -86,6 +93,7 @@ export interface MultiplayerRoomState {
   status: MultiplayerRoomStatus;
   level: number;
   districtName: string;
+  weather: MultiplayerWeatherCondition;
   seed: number;
   totalStops: number;
   activeStopIndex: number;
@@ -116,6 +124,7 @@ export type ClientWsMessage =
       topperId: string;
       isPublic: boolean;
       level: number;
+      weather?: MultiplayerWeatherCondition;
     }
   | {
       type: 'room:join';
@@ -133,8 +142,9 @@ export type ClientWsMessage =
       topperId?: string;
       ready?: boolean;
     }
-  | { type: 'room:set_level'; level: number }
-  | { type: 'match:start'; level?: number }
+  | { type: 'room:set_level'; level: number; weather?: MultiplayerWeatherCondition }
+  | { type: 'room:set_weather'; weather: MultiplayerWeatherCondition }
+  | { type: 'match:start'; level?: number; weather?: MultiplayerWeatherCondition }
   | { type: 'match:return_lobby' }
   | {
       type: 'player:telemetry';
