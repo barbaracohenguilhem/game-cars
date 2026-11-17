@@ -2,8 +2,32 @@
 
 @layer base {
   :root {
-    --font-display: 'Lilita One', system-ui, -apple-system, sans-serif;
+    --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+    /* Scandinavian Architectural Diorama & Tactical Instrument Palette */
+    --bg-canvas: #dce5ea;
+    --sheet-alabaster: #f5f3ee;
+    --sheet-birch: #eae6dd;
+    --sheet-border: #d5d0c5;
+    --ink-primary: #181d23;
+    --ink-muted: #525b65;
+
+    /* Solid Graphite HUD Instruments (no backdrop-filter over WebGL) */
+    --hud-graphite: rgba(18, 22, 26, 0.91);
+    --hud-graphite-elevated: #222830;
+    --hud-border: rgba(255, 255, 255, 0.13);
+    --hud-text: #f4f3ef;
+    --hud-muted: #9ba3ae;
+
+    /* 10% High-Intent Signal Accents */
+    --signal-orange: #ff551e;
+    --signal-orange-hover: #e64612;
+    --nordic-pine: #16a34a;
+    --nordic-pine-hover: #138a3e;
+    --signal-amber: #eab308;
+    --signal-crimson: #dc2626;
   }
 
   html,
@@ -14,193 +38,148 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #69ccf7;
+    background-color: var(--bg-canvas);
+    color: var(--ink-primary);
     font-family: var(--font-sans);
     user-select: none;
     -webkit-user-select: none;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
 .font-display {
   font-family: var(--font-display);
-  letter-spacing: 0.02em;
+  letter-spacing: -0.015em;
 }
 
-.font-num {
-  font-family: var(--font-display);
+.font-mono-num {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
 }
 
-/* Chunky cartoon black-outlined white/yellow display text matching reference UI */
-.arcade-stroke {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  paint-order: stroke fill;
-  -webkit-text-stroke: 3.8px #140c04;
-  text-shadow: 0 2.5px 0 #140c04;
-  letter-spacing: 0.025em;
+/* Architectural Alabaster Modal & Sheet Surface */
+.nordic-sheet {
+  background-color: var(--sheet-alabaster);
+  border: 1px solid var(--sheet-border);
+  box-shadow: 0 24px 48px rgba(15, 20, 26, 0.24);
 }
 
-.arcade-stroke-sm {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  paint-order: stroke fill;
-  -webkit-text-stroke: 2.8px #140c04;
-  text-shadow: 0 2px 0 #140c04;
-  letter-spacing: 0.025em;
+.nordic-inset {
+  background-color: var(--sheet-birch);
+  border: 1px solid var(--sheet-border);
 }
 
-.arcade-stroke-lg {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  paint-order: stroke fill;
-  -webkit-text-stroke: 4.6px #140c04;
-  text-shadow: 0 3px 0 #140c04;
-  letter-spacing: 0.025em;
+/* Solid High-Contrast Tactical HUD Surfaces (Zero WebGL backdrop-blur stall) */
+.tactical-panel {
+  background-color: var(--hud-graphite);
+  border: 1px solid var(--hud-border);
+  color: var(--hud-text);
+  box-shadow: 0 8px 20px rgba(10, 14, 18, 0.26);
 }
 
-/* Reference 1: Deep espresso-brown counter track with bold dark outline */
-.arcade-pill-brown {
-  background-color: #493214;
-  border: 3px solid #140c04;
-  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.32), 0 3px 0 rgba(20, 12, 4, 0.38);
+.tactical-btn {
+  background-color: var(--hud-graphite);
+  border: 1px solid var(--hud-border);
+  color: var(--hud-text);
+  box-shadow: 0 4px 12px rgba(10, 14, 18, 0.22);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Reference 1: Two-tone cel-shaded golden progress bar fill */
-.arcade-bar-gold {
-  background: linear-gradient(180deg, #ffe629 0%, #ffe629 52%, #f59c0b 52%, #f59c0b 100%);
+.tactical-btn:hover:not(:disabled) {
+  background-color: #262d36;
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
 }
 
-/* Reference 2: Golden-rimmed Boost capsule outer frame */
-.arcade-boost-rim {
-  background: linear-gradient(180deg, #ffee1f 0%, #ffee1f 58%, #df8b00 58%, #df8b00 100%);
-  border: 3px solid #140c04;
-  box-shadow: 0 4px 0 #140c04;
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+.tactical-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-.arcade-boost-rim:hover:not(:disabled) {
-  transform: translateY(-1px) scale(1.02);
-}
-
-.arcade-boost-rim:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 #140c04;
-}
-
-/* Reference 3: Two-tone cel-shaded golden-orange primary arcade button */
-.arcade-btn-gold {
-  background: linear-gradient(180deg, #ffdf24 0%, #ffdf24 52%, #f59b14 52%, #f59b14 100%);
+/* Primary Signal Orange Action Button */
+.btn-signal {
+  background-color: var(--signal-orange);
   color: #ffffff;
-  border: 3px solid #140c04;
-  box-shadow: inset 0 -5px 0 #c76705, 0 4px 0 rgba(20, 12, 4, 0.38);
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), filter 120ms ease;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: 0 4px 12px rgba(255, 85, 30, 0.24);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.arcade-btn-gold:hover:not(:disabled) {
-  filter: brightness(1.04);
+.btn-signal:hover:not(:disabled) {
+  background-color: var(--signal-orange-hover);
   transform: translateY(-1px);
 }
 
-.arcade-btn-gold:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: inset 0 -2px 0 #c76705, 0 1px 0 rgba(20, 12, 4, 0.38);
+.btn-signal:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-/* Two-tone emerald variant for active curbside delivery ready state */
-.arcade-btn-green {
-  background: linear-gradient(180deg, #6bf25c 0%, #6bf25c 52%, #26c42f 52%, #26c42f 100%);
+/* Active Drop-Lock Nordic Pine Action Button */
+.btn-pine {
+  background-color: var(--nordic-pine);
   color: #ffffff;
-  border: 3px solid #140c04;
-  box-shadow: inset 0 -5px 0 #14801b, 0 4px 0 rgba(20, 12, 4, 0.38);
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), filter 120ms ease;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.24);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.arcade-btn-green:hover:not(:disabled) {
-  filter: brightness(1.04);
+.btn-pine:hover:not(:disabled) {
+  background-color: var(--nordic-pine-hover);
   transform: translateY(-1px);
 }
 
-.arcade-btn-green:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: inset 0 -2px 0 #14801b, 0 1px 0 rgba(20, 12, 4, 0.38);
+.btn-pine:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-/* Two-tone sky-blue tactile secondary arcade button for high contrast */
-.arcade-btn-cream {
-  background: linear-gradient(180deg, #5cd6ff 0%, #5cd6ff 52%, #1ca3ec 52%, #1ca3ec 100%);
-  color: #ffffff;
-  border: 3px solid #140c04;
-  box-shadow: inset 0 -4px 0 #0d6fa8, 0 3px 0 rgba(20, 12, 4, 0.34);
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), filter 120ms ease;
+/* Secondary Architectural Stone Action Button */
+.btn-stone {
+  background-color: #ffffff;
+  color: var(--ink-primary);
+  border: 1px solid #c9c3b6;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.arcade-btn-cream:hover:not(:disabled) {
-  filter: brightness(1.04);
+.btn-stone:hover:not(:disabled) {
+  background-color: var(--sheet-birch);
+  border-color: #b4ad9e;
   transform: translateY(-1px);
 }
 
-.arcade-btn-cream:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: inset 0 -2px 0 #0d6fa8, 0 1px 0 rgba(20, 12, 4, 0.34);
+.btn-stone:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-/* Reference 1 right square cap button */
-.arcade-cap-gold {
-  background: linear-gradient(180deg, #ffc312 0%, #ffc312 54%, #e57c04 54%, #e57c04 100%);
-  border: 3px solid #1d1205;
-  box-shadow: inset 0 -3px 0 #b85800, 0 3px 0 rgba(29, 18, 5, 0.35);
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Dark Graphite Action Button on Light Sheets */
+.btn-graphite {
+  background-color: #181d23;
+  color: #f5f3ee;
+  border: 1px solid #181d23;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.arcade-cap-gold:hover:not(:disabled) {
-  filter: brightness(1.05);
+.btn-graphite:hover:not(:disabled) {
+  background-color: #272f38;
   transform: translateY(-1px);
 }
 
-.arcade-cap-gold:active:not(:disabled) {
-  transform: translateY(2px);
+.btn-graphite:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-/* Reference 3: Circular dark-translucent utility button */
-.arcade-circle-btn {
-  background-color: rgba(34, 52, 20, 0.56);
-  border: 3px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 4px 0 rgba(20, 30, 10, 0.34);
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 120ms ease;
-}
-
-.arcade-circle-btn:hover:not(:disabled) {
-  background-color: rgba(34, 52, 20, 0.72);
-  transform: translateY(-1px);
-}
-
-.arcade-circle-btn:active:not(:disabled) {
-  transform: translateY(2px);
-}
-
-/* Reference 4: Left-edge docked semicircular tab pocket */
-.arcade-dock-tab {
-  background-color: rgba(28, 48, 16, 0.46);
-  border-top: 2px solid rgba(20, 32, 10, 0.28);
-  border-right: 2px solid rgba(20, 32, 10, 0.28);
-  border-bottom: 2px solid rgba(20, 32, 10, 0.28);
-  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 120ms ease;
-}
-
-.arcade-dock-tab:hover:not(:disabled) {
-  background-color: rgba(28, 48, 16, 0.64);
-  transform: translateX(2px);
-}
-
-.arcade-dock-tab:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-/* Warm arcade board for Welcome & Status Modals */
-.arcade-panel {
-  background-color: #fff6dc;
-  border: 3.5px solid #1d1205;
-  box-shadow: inset 0 -6px 0 #e3c686, 0 8px 0 rgba(29, 18, 5, 0.38);
+@media (prefers-reduced-motion: reduce) {
+  .tactical-btn,
+  .btn-signal,
+  .btn-pine,
+  .btn-stone,
+  .btn-graphite {
+    transition: none;
+  }
 }

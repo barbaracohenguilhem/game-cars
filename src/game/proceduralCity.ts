@@ -58,8 +58,8 @@ const DISTRICT_THEMES: { name: string; archetype: CityArchetype }[] = [
 
 const SKIN_TONES = [0xf7d5bc, 0xebbc9a, 0xd19870, 0x9b6443, 0xfbe0ce];
 const HAIR_COLORS = [0x2c221e, 0x593a27, 0x8c5230, 0xd49b4b, 0x3b3f4c, 0xa84a32];
-const TOP_COLORS = [0x4ea8de, 0xf4845f, 0x52b788, 0xf7b267, 0x9b89f5, 0xf2709c, 0x3d5a80];
-const BOTTOM_COLORS = [0x354f6b, 0x4a5568, 0x6c584c, 0x2b3a4a, 0x5c677d, 0xd8c3a5];
+const TOP_COLORS = [0x3b5b7e, 0xc84b31, 0x2a7b6f, 0xd89b48, 0x5c6b7a, 0xd9cfc1, 0x2b3a4a];
+const BOTTOM_COLORS = [0x24303c, 0x3d4652, 0x5c534a, 0x1e2730, 0x4b5563, 0xcbc2b3];
 const HAIR_STYLES: PersonAppearance['hairStyle'][] = [
   'short',
   'ponytail',
@@ -77,19 +77,19 @@ const CUSTOMER_PROFILES: {
   hat: number;
   shirt: number;
 }[] = [
-  { name: 'Maya', parcel: 'Matcha Pocket Tin', kind: ParcelKind.Small, vip: 'none', hat: 0xf4845f, shirt: 0x4ea8de },
-  { name: 'Chef Peppe', parcel: 'Piping-Hot Brick Pizza', kind: ParcelKind.HotExpress, vip: 'chef', hat: 0xffffff, shirt: 0xe63946 },
-  { name: 'Leo', parcel: 'Heavy Vinyl Turntable Crate', kind: ParcelKind.Large, vip: 'none', hat: 0x52b788, shirt: 0xf7b267 },
-  { name: 'Mayor Tock', parcel: 'Clocktower Brass Seal', kind: ParcelKind.Fragile, vip: 'mayor', hat: 0xffbe0b, shirt: 0x3d5a80 },
-  { name: 'Capt. Marina', parcel: 'Harbor Brass Compass', kind: ParcelKind.Small, vip: 'captain', hat: 0x1d3557, shirt: 0x4ea8de },
-  { name: 'Chloe', parcel: 'Artisan Espresso Machine Crate', kind: ParcelKind.Large, vip: 'none', hat: 0x9b89f5, shirt: 0xf7d060 },
-  { name: 'Hana', parcel: 'Glass Botanical Terrarium', kind: ParcelKind.Fragile, vip: 'none', hat: 0xf2709c, shirt: 0x52b788 },
-  { name: 'Mateo', parcel: 'Sizzling Ramen Bento', kind: ParcelKind.HotExpress, vip: 'none', hat: 0xff6b35, shirt: 0x2ec4b6 },
-  { name: 'Yuki', parcel: 'Tiered Wedding Cake Box', kind: ParcelKind.Fragile, vip: 'none', hat: 0xe56b8f, shirt: 0x8ecae6 },
+  { name: 'Maya', parcel: 'Matcha Pocket Tin', kind: ParcelKind.Small, vip: 'none', hat: 0xff551e, shirt: 0x3b5b7e },
+  { name: 'Chef Peppe', parcel: 'Piping-Hot Brick Pizza', kind: ParcelKind.HotExpress, vip: 'chef', hat: 0xc84b31, shirt: 0x2b3a4a },
+  { name: 'Leo', parcel: 'Heavy Vinyl Turntable Crate', kind: ParcelKind.Large, vip: 'none', hat: 0x2a7b6f, shirt: 0xd89b48 },
+  { name: 'Mayor Tock', parcel: 'Clocktower Brass Seal', kind: ParcelKind.Fragile, vip: 'mayor', hat: 0xd99b26, shirt: 0x2f4358 },
+  { name: 'Capt. Marina', parcel: 'Harbor Brass Compass', kind: ParcelKind.Small, vip: 'captain', hat: 0x1e2d3d, shirt: 0x4f6d8a },
+  { name: 'Chloe', parcel: 'Artisan Espresso Machine Crate', kind: ParcelKind.Large, vip: 'none', hat: 0x4f6d8a, shirt: 0xd9cfc1 },
+  { name: 'Hana', parcel: 'Glass Botanical Terrarium', kind: ParcelKind.Fragile, vip: 'none', hat: 0x2a7b6f, shirt: 0x6f8f68 },
+  { name: 'Mateo', parcel: 'Sizzling Ramen Bento', kind: ParcelKind.HotExpress, vip: 'none', hat: 0xff551e, shirt: 0x2a7b6f },
+  { name: 'Yuki', parcel: 'Tiered Wedding Cake Box', kind: ParcelKind.Fragile, vip: 'none', hat: 0xc84b31, shirt: 0x7c93a6 },
 ];
 
-const BRICK_PALETTE = [0xf8c94e, 0xdc7e44, 0x5ba85d, 0xf5dc93];
-const VEHICLE_PALETTE = [0xf48c46, 0xf9c74f, 0x56b4e9, 0xf2789f, 0x68c478, 0x8e9aaf];
+const BRICK_PALETTE = [0xe2dcd0, 0xd4c9b8, 0xc84b31, 0x8b959e];
+const VEHICLE_PALETTE = [0xd9d4ca, 0x3b5b7e, 0x2a7b6f, 0xc84b31, 0xd89b48, 0x5c6773];
 
 function makeAppearance(rng: () => number, overrideTop?: number, overrideAccent?: number): PersonAppearance {
   return {
@@ -944,7 +944,7 @@ export function generateProceduralCity(
             x: wp.x + fx * 0.98 + rx * (0.86 * propSide),
             z: wp.z + fz * 0.98 + rz * (0.86 * propSide),
             yaw: facingYaw,
-            accentHex: rng() < 0.5 ? 0x3b82f6 : 0xef4444,
+            accentHex: rng() < 0.5 ? 0x3b5b7e : 0xc84b31,
           });
         }
       } else if (
@@ -1022,7 +1022,7 @@ export function generateProceduralCity(
             x: wp.x,
             z: wp.z,
             yaw: 0,
-            accentHex: 0x5cc8f8,
+            accentHex: 0x6b93a8,
           });
           const fTree = treeVariants[(r * 5 + c) % treeVariants.length];
           trees.push({
@@ -1037,7 +1037,7 @@ export function generateProceduralCity(
             z: wp.z - 0.8,
             variant: 'bush',
             scale: 0.85,
-            tintHex: 0x6ec25a,
+            tintHex: 0x6f8c69,
           });
         } else {
           streetProps.push({
@@ -1045,14 +1045,14 @@ export function generateProceduralCity(
             x: wp.x - 0.46,
             z: wp.z - 0.46,
             yaw: rng() * Math.PI,
-            accentHex: rng() < 0.5 ? 0xf2709c : 0xff9f1c,
+            accentHex: rng() < 0.5 ? 0xd9cfc1 : 0xc84b31,
           });
           streetProps.push({
             kind: 'bench',
             x: wp.x - 0.42,
             z: wp.z + 0.14,
             yaw: facingYaw,
-            accentHex: 0xc6824b,
+            accentHex: 0xc2ab8e,
           });
           const cTree = treeVariants[(r + c * 3) % treeVariants.length];
           trees.push({
@@ -1088,7 +1088,7 @@ export function generateProceduralCity(
             z: wp.z - 0.52,
             variant: 'bush',
             scale: 0.84,
-            tintHex: 0x6ec958,
+            tintHex: 0x73916c,
           });
         }
       }
@@ -1141,7 +1141,7 @@ export function generateProceduralCity(
           x: wp.x - 1.02,
           z: wp.z + 1.04,
           yaw: 0,
-          accentHex: 0xffe699,
+          accentHex: 0xf4e3b8,
         });
       } else if ((r + c) % 3 === 0 && isDrivableTile(tiles[r]?.[c + 1])) {
         streetProps.push({
@@ -1149,7 +1149,7 @@ export function generateProceduralCity(
           x: wp.x + 1.04,
           z: wp.z - 1.0,
           yaw: 0,
-          accentHex: 0xe63946,
+          accentHex: 0xc84b31,
         });
       }
     }
@@ -1366,7 +1366,7 @@ export function generateProceduralCity(
 
   // Scenic Canal Boats & Sailboats cruising along open water channels!
   const canalBoats: CanalBoat[] = [];
-  const boatColors = [0xf4845f, 0x4ea8de, 0xf9c74f, 0x52b788, 0xf2709c];
+  const boatColors = [0x2f4858, 0xc84b31, 0x2a7b6f, 0xd9cfc1, 0x4f6d8a];
   for (let r = 1; r < totalGridSize - 1 && canalBoats.length < 7; r++) {
     for (let c = 1; c < totalGridSize - 2 && canalBoats.length < 7; c++) {
       if (
@@ -1385,7 +1385,7 @@ export function generateProceduralCity(
             z: p1.z,
             yaw: Math.PI / 2,
             hullColor: boatColors[canalBoats.length % boatColors.length],
-            cabinColor: 0xfff8eb,
+            cabinColor: 0xf5f3ee,
             hasSail: canalBoats.length % 2 === 0,
             patrolStart: p1,
             patrolEnd: p2,
@@ -1409,7 +1409,7 @@ export function generateProceduralCity(
             z: p1.z,
             yaw: 0,
             hullColor: boatColors[canalBoats.length % boatColors.length],
-            cabinColor: 0xfff8eb,
+            cabinColor: 0xf5f3ee,
             hasSail: canalBoats.length % 2 === 1,
             patrolStart: p1,
             patrolEnd: p2,
@@ -1502,8 +1502,8 @@ export function generateProceduralCity(
       orbitRadius: 3.6,
       speed: 0.16,
       phaseOffset: 0.4,
-      primaryColor: 0xff8fab,
-      stripeColor: 0xfff8eb,
+      primaryColor: 0xd9cfc1,
+      stripeColor: 0xc84b31,
     },
     {
       id: 'balloon-2',
@@ -1513,8 +1513,8 @@ export function generateProceduralCity(
       orbitRadius: 4.2,
       speed: 0.13,
       phaseOffset: 2.5,
-      primaryColor: 0xffca3a,
-      stripeColor: 0x56b4e9,
+      primaryColor: 0x3b5b7e,
+      stripeColor: 0xf5f3ee,
     },
   ];
 
@@ -1612,7 +1612,7 @@ export function generateProceduralCity(
       yaw,
       speed: sSpd,
       currentSpeed: 0,
-      colorHex: 0xff595e,
+      colorHex: 0xff551e,
       waypoints: [pA, pB],
       waypointIndex: 1,
       dashStart: pA,
@@ -1648,7 +1648,7 @@ export function generateProceduralCity(
       yaw: horizRoad ? Math.PI / 2 : 0,
       speed: 0,
       currentSpeed: 0,
-      colorHex: 0xf6b93b,
+      colorHex: 0xe09f3e,
       waypoints: [wp],
       waypointIndex: 0,
       dashStart: wp,
@@ -1813,11 +1813,11 @@ export function generateProceduralCity(
 }
 
 function getTreeHex(v: TreeProp['variant'], rng: () => number): number {
-  if (v === 'sakura') return rng() < 0.5 ? 0xff9ec4 : 0xffb5d2;
-  if (v === 'autumn') return rng() < 0.5 ? 0xf5b841 : 0xee893e;
-  if (v === 'pine') return rng() < 0.5 ? 0x4da35a : 0x5bb366;
-  if (v === 'cypress') return 0x469652;
-  return rng() < 0.5 ? 0x7cd458 : 0x8bde64;
+  if (v === 'sakura') return rng() < 0.5 ? 0xe8dfd5 : 0xdccbc2;
+  if (v === 'autumn') return rng() < 0.5 ? 0xd8a24a : 0xc67d3b;
+  if (v === 'pine') return rng() < 0.5 ? 0x385e4c : 0x436e59;
+  if (v === 'cypress') return 0x345746;
+  return rng() < 0.5 ? 0x6f8f68 : 0x7e9c76;
 }
 
 /**

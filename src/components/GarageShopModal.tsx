@@ -62,56 +62,63 @@ export const GarageShopModal: React.FC<GarageShopModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-black/45 overflow-y-auto"
+      className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-[#10151b]/50 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="garage-shop-heading"
     >
-      <div className="pointer-events-auto arcade-panel rounded-3xl p-4 sm:p-6 w-full max-w-[560px] my-auto flex flex-col gap-3.5">
-        {/* Header Banner + Coin / Spin Token Balance */}
-        <div className="arcade-pill-brown rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-extrabold text-[#ffee1f] tracking-wide">
-              Courier Depot &amp; Customization
+      <div className="pointer-events-auto nordic-sheet rounded-2xl p-5 sm:p-6 w-full max-w-[560px] my-auto flex flex-col gap-4">
+        {/* Header + Coin / Token Readout */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <div className="font-mono-num text-[11px] font-medium uppercase tracking-[0.14em] text-[#525b65]">
+              Fleet Depot · Customization
             </div>
             <h2
               id="garage-shop-heading"
-              className="arcade-stroke text-white text-2xl sm:text-3xl leading-tight"
+              className="font-display text-2xl sm:text-[28px] font-bold text-[#181d23] leading-tight"
             >
-              GARAGE SHOP
+              Courier Depot
             </h2>
           </div>
 
           <div className="flex flex-col items-end gap-1">
-            <div className="bg-[#2b1b08] border-2 border-[#140c04] rounded-full px-3 py-1 flex items-center gap-1.5">
-              <span className="inline-block w-3.5 h-3.5 rounded-full bg-[#ffe524] border border-[#140c04]" />
+            <div
+              className="nordic-inset rounded-lg px-3 py-1.5 flex items-center gap-2"
+              aria-label={`${progression.coins} coins available`}
+            >
               <span
-                className="arcade-stroke-sm text-[#ffe524] text-base leading-none"
-                aria-label={`${progression.coins} coins available`}
-              >
+                className="w-2.5 h-2.5 rounded-full bg-[#eab308]"
+                aria-hidden="true"
+              />
+              <span className="font-mono-num text-sm sm:text-base font-semibold text-[#181d23] leading-none">
                 {progression.coins.toLocaleString()}
               </span>
+              <span className="font-mono-num text-[10px] uppercase tracking-wider text-[#525b65]">
+                Coins
+              </span>
             </div>
+
             {progression.spinTokens > 0 && (
-              <span className="text-[11px] font-extrabold text-[#6bf25c]">
-                {progression.spinTokens} Free Spin{' '}
-                {progression.spinTokens === 1 ? 'Token' : 'Tokens'}!
+              <span className="font-mono-num text-[11px] font-semibold text-[#16a34a]">
+                {progression.spinTokens} Dispatch{' '}
+                {progression.spinTokens === 1 ? 'Token' : 'Tokens'} Ready
               </span>
             )}
           </div>
         </div>
 
-        {/* 3 Arcade Category Tabs */}
+        {/* 3-Tab Segmented Control */}
         <div
-          className="grid grid-cols-3 gap-2"
+          className="nordic-inset rounded-xl p-1 grid grid-cols-3 gap-1"
           role="tablist"
           aria-label="Shop categories"
         >
           {(
             [
-              { id: 'fleet', label: 'FLEET VANS' },
-              { id: 'toppers', label: 'ROOF TOPPERS' },
-              { id: 'spin', label: 'LUCKY SPIN' },
+              { id: 'fleet', label: 'Fleet Vans' },
+              { id: 'toppers', label: 'Roof Rigs' },
+              { id: 'spin', label: 'Dispatch Wheel' },
             ] as { id: ShopTab; label: string }[]
           ).map((t) => {
             const active = tab === t.id;
@@ -126,12 +133,12 @@ export const GarageShopModal: React.FC<GarageShopModalProps> = ({
                   setTab(t.id);
                 }}
                 className={`${
-                  active ? 'arcade-btn-gold' : 'arcade-pill-brown'
-                } py-2 px-2 rounded-xl cursor-pointer text-center relative`}
+                  active
+                    ? 'bg-[#181d23] text-[#f5f3ee] shadow-xs'
+                    : 'text-[#525b65] hover:text-[#181d23]'
+                } py-2 px-2 rounded-lg cursor-pointer text-center font-display font-semibold text-xs sm:text-sm transition-colors`}
               >
-                <span className="arcade-stroke-sm text-white text-xs sm:text-sm">
-                  {t.label}
-                </span>
+                {t.label}
               </button>
             );
           })}
@@ -140,140 +147,142 @@ export const GarageShopModal: React.FC<GarageShopModalProps> = ({
         {/* Tab 1: Unlockable Fleet Vehicles */}
         {tab === 'fleet' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {(Object.values(VEHICLE_SPECS) as (typeof VEHICLE_SPECS)[VehicleId][]).map(
-              (v) => {
-                const owned = progression.unlockedVehicles.includes(v.id);
-                const equipped = progression.selectedVehicle === v.id;
-                const canAfford = progression.coins >= v.costCoins;
+            {(
+              Object.values(
+                VEHICLE_SPECS,
+              ) as (typeof VEHICLE_SPECS)[VehicleId][]
+            ).map((v) => {
+              const owned = progression.unlockedVehicles.includes(v.id);
+              const equipped = progression.selectedVehicle === v.id;
+              const canAfford = progression.coins >= v.costCoins;
 
-                return (
-                  <div
-                    key={v.id}
-                    className="arcade-pill-brown rounded-2xl p-3 flex flex-col justify-between gap-2.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="arcade-stroke-sm text-white text-base leading-snug">
-                          {v.name}
-                        </div>
-                        <div className="text-[11px] font-bold text-[#ffe8a3] mt-0.5">
-                          {v.tagline}
-                        </div>
+              return (
+                <div
+                  key={v.id}
+                  className="bg-white border border-[#d5d0c5] rounded-xl p-3.5 flex flex-col justify-between gap-3"
+                >
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div>
+                      <div className="font-display font-semibold text-[15px] text-[#181d23] leading-snug">
+                        {v.name}
                       </div>
-                      <span
-                        className="w-5 h-5 rounded-lg border-2 border-[#140c04] shrink-0 mt-0.5"
-                        style={{ backgroundColor: v.accentHex }}
-                        aria-hidden="true"
-                      />
+                      <div className="text-xs text-[#525b65] mt-0.5 leading-relaxed">
+                        {v.tagline}
+                      </div>
                     </div>
-
-                    <button
-                      type="button"
-                      disabled={!owned && !canAfford}
-                      onClick={() => {
-                        pokoAudio.playUiClick();
-                        onSelectOrBuyVehicle(v.id);
-                      }}
-                      className={`${
-                        equipped
-                          ? 'arcade-btn-green'
-                          : owned
-                            ? 'arcade-btn-cream'
-                            : canAfford
-                              ? 'arcade-btn-gold'
-                              : 'bg-stone-700 border-2 border-[#140c04] opacity-60 cursor-not-allowed'
-                      } w-full py-2 px-3 rounded-xl cursor-pointer text-center`}
-                    >
-                      <span className="arcade-stroke-sm text-white text-sm">
-                        {equipped
-                          ? 'EQUIPPED'
-                          : owned
-                            ? 'EQUIP VEHICLE'
-                            : `UNLOCK · ${v.costCoins} COINS`}
-                      </span>
-                    </button>
+                    <span
+                      className="w-5 h-5 rounded-md border border-black/15 shrink-0 mt-0.5"
+                      style={{ backgroundColor: v.accentHex }}
+                      aria-hidden="true"
+                    />
                   </div>
-                );
-              },
-            )}
+
+                  <button
+                    type="button"
+                    disabled={!owned && !canAfford}
+                    onClick={() => {
+                      pokoAudio.playUiClick();
+                      onSelectOrBuyVehicle(v.id);
+                    }}
+                    className={`${
+                      equipped
+                        ? 'btn-pine'
+                        : owned
+                          ? 'btn-graphite'
+                          : canAfford
+                            ? 'btn-signal'
+                            : 'bg-[#eae6dd] text-[#8b929a] border border-[#d5d0c5] cursor-not-allowed'
+                    } w-full py-2 px-3 rounded-lg text-center font-display font-semibold text-xs sm:text-sm ${
+                      !owned && !canAfford ? '' : 'cursor-pointer'
+                    }`}
+                  >
+                    {equipped
+                      ? 'Equipped'
+                      : owned
+                        ? 'Equip Vehicle'
+                        : `Unlock · ${v.costCoins} Coins`}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Tab 2: 3D Roof Toppers */}
+        {/* Tab 2: 3D Roof Rigs */}
         {tab === 'toppers' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {(Object.values(TOPPER_SPECS) as (typeof TOPPER_SPECS)[TopperId][]).map(
-              (tp) => {
-                const owned = progression.unlockedToppers.includes(tp.id);
-                const equipped = progression.selectedTopper === tp.id;
-                const canAfford = progression.coins >= tp.costCoins;
+            {(
+              Object.values(TOPPER_SPECS) as (typeof TOPPER_SPECS)[TopperId][]
+            ).map((tp) => {
+              const owned = progression.unlockedToppers.includes(tp.id);
+              const equipped = progression.selectedTopper === tp.id;
+              const canAfford = progression.coins >= tp.costCoins;
 
-                return (
-                  <div
-                    key={tp.id}
-                    className="arcade-pill-brown rounded-2xl p-3 flex flex-col justify-between gap-2.5"
-                  >
-                    <div>
-                      <div className="arcade-stroke-sm text-white text-base leading-snug">
-                        {tp.name}
-                      </div>
-                      <div className="text-[11px] font-bold text-[#ffe8a3] mt-0.5">
-                        {tp.tagline}
-                      </div>
+              return (
+                <div
+                  key={tp.id}
+                  className="bg-white border border-[#d5d0c5] rounded-xl p-3.5 flex flex-col justify-between gap-3"
+                >
+                  <div>
+                    <div className="font-display font-semibold text-[15px] text-[#181d23] leading-snug">
+                      {tp.name}
                     </div>
-
-                    <button
-                      type="button"
-                      disabled={!owned && !canAfford}
-                      onClick={() => {
-                        pokoAudio.playUiClick();
-                        onSelectOrBuyTopper(tp.id);
-                      }}
-                      className={`${
-                        equipped
-                          ? 'arcade-btn-green'
-                          : owned
-                            ? 'arcade-btn-cream'
-                            : canAfford
-                              ? 'arcade-btn-gold'
-                              : 'bg-stone-700 border-2 border-[#140c04] opacity-60 cursor-not-allowed'
-                      } w-full py-2 px-3 rounded-xl cursor-pointer text-center`}
-                    >
-                      <span className="arcade-stroke-sm text-white text-sm">
-                        {equipped
-                          ? 'EQUIPPED'
-                          : owned
-                            ? 'EQUIP TOPPER'
-                            : `UNLOCK · ${tp.costCoins} COINS`}
-                      </span>
-                    </button>
+                    <div className="text-xs text-[#525b65] mt-0.5 leading-relaxed">
+                      {tp.tagline}
+                    </div>
                   </div>
-                );
-              },
-            )}
+
+                  <button
+                    type="button"
+                    disabled={!owned && !canAfford}
+                    onClick={() => {
+                      pokoAudio.playUiClick();
+                      onSelectOrBuyTopper(tp.id);
+                    }}
+                    className={`${
+                      equipped
+                        ? 'btn-pine'
+                        : owned
+                          ? 'btn-graphite'
+                          : canAfford
+                            ? 'btn-signal'
+                            : 'bg-[#eae6dd] text-[#8b929a] border border-[#d5d0c5] cursor-not-allowed'
+                    } w-full py-2 px-3 rounded-lg text-center font-display font-semibold text-xs sm:text-sm ${
+                      !owned && !canAfford ? '' : 'cursor-pointer'
+                    }`}
+                  >
+                    {equipped
+                      ? 'Equipped'
+                      : owned
+                        ? 'Equip Rig'
+                        : `Unlock · ${tp.costCoins} Coins`}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Tab 3: Lucky Dispatch Spin Wheel */}
+        {/* Tab 3: Precision Rotary Dispatch Wheel */}
         {tab === 'spin' && (
-          <div className="arcade-pill-brown rounded-2xl p-4 flex flex-col items-center gap-3">
+          <div className="nordic-inset rounded-xl p-5 flex flex-col items-center gap-3.5">
             <div className="relative w-44 h-44 flex items-center justify-center">
-              {/* Top Golden Pointer */}
+              {/* Top Signal Orange Index Pointer */}
               <svg
-                viewBox="0 0 36 28"
-                className="w-8 h-7 absolute -top-2.5 z-10 drop-shadow-sm"
+                viewBox="0 0 28 24"
+                className="w-7 h-6 absolute -top-2 z-10 drop-shadow-xs"
                 aria-hidden="true"
               >
                 <polygon
-                  points="4,3 32,3 18,25"
-                  fill="#ffe524"
-                  stroke="#140c04"
-                  strokeWidth="3.2"
+                  points="4,2 24,2 14,21"
+                  fill="#ff551e"
+                  stroke="#181d23"
+                  strokeWidth="2"
                   strokeLinejoin="round"
                 />
               </svg>
 
-              {/* Rotating 6-Slice Arcade Wheel */}
+              {/* Rotating 6-Sector Nordic Dial */}
               <svg
                 viewBox="0 0 120 120"
                 className="w-40 h-40 transition-transform duration-700 ease-out"
@@ -284,51 +293,50 @@ export const GarageShopModal: React.FC<GarageShopModalProps> = ({
                   cx="60"
                   cy="60"
                   r="56"
-                  fill="#173763"
-                  stroke="#140c04"
-                  strokeWidth="4"
+                  fill="#181d23"
                 />
                 {SPIN_WHEEL_SLICES.map((s, idx) => {
                   const a0 = ((idx * 60 - 90) * Math.PI) / 180;
                   const a1 = (((idx + 1) * 60 - 90) * Math.PI) / 180;
-                  const x0 = 60 + 50 * Math.cos(a0);
-                  const y0 = 60 + 50 * Math.sin(a0);
-                  const x1 = 60 + 50 * Math.cos(a1);
-                  const y1 = 60 + 50 * Math.sin(a1);
+                  const x0 = 60 + 51 * Math.cos(a0);
+                  const y0 = 60 + 51 * Math.sin(a0);
+                  const x1 = 60 + 51 * Math.cos(a1);
+                  const y1 = 60 + 51 * Math.sin(a1);
                   return (
                     <path
                       key={s.index}
-                      d={`M60 60 L${x0.toFixed(1)} ${y0.toFixed(1)} A50 50 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`}
+                      d={`M60 60 L${x0.toFixed(1)} ${y0.toFixed(1)} A51 51 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`}
                       fill={s.colorHex}
-                      stroke="#140c04"
-                      strokeWidth="2.4"
+                      stroke="#f5f3ee"
+                      strokeWidth="1.6"
                     />
                   );
                 })}
                 <circle
                   cx="60"
                   cy="60"
-                  r="14"
-                  fill="#ffe524"
-                  stroke="#140c04"
-                  strokeWidth="3.2"
+                  r="13"
+                  fill="#181d23"
+                  stroke="#f5f3ee"
+                  strokeWidth="2"
                 />
-                <circle cx="60" cy="60" r="5" fill="#ff2430" />
+                <circle cx="60" cy="60" r="4.5" fill="#ff551e" />
               </svg>
             </div>
 
             {lastSpinReward ? (
-              <div className="bg-[#2b1b08] border-2 border-[#140c04] rounded-xl px-4 py-1.5 text-center">
-                <div className="arcade-stroke-sm text-[#6bf25c] text-base">
-                  WON: {lastSpinReward.label}!
+              <div className="bg-white border border-[#d5d0c5] rounded-lg px-4 py-2 text-center">
+                <div className="font-display font-bold text-[#16a34a] text-sm sm:text-base">
+                  Issued: {lastSpinReward.label}
                 </div>
-                <div className="text-[11px] font-bold text-[#ffe8a3]">
+                <div className="text-xs text-[#525b65]">
                   {lastSpinReward.detail}
                 </div>
               </div>
             ) : (
-              <div className="text-xs font-bold text-[#ffe8a3] text-center">
-                Win up to +500 Jackpot Coins or a Free Bumper Shield!
+              <div className="text-xs text-[#525b65] text-center">
+                Win up to <strong className="text-[#181d23]">+500 Coins</strong>{' '}
+                or a complimentary <strong className="text-[#181d23]">Bumper Shield</strong>.
               </div>
             )}
 
@@ -338,33 +346,29 @@ export const GarageShopModal: React.FC<GarageShopModalProps> = ({
               onClick={handleTriggerSpin}
               className={`${
                 canSpin
-                  ? 'arcade-btn-gold'
-                  : 'bg-stone-700 border-2 border-[#140c04] opacity-60 cursor-not-allowed'
-              } w-full max-w-xs py-2.5 px-5 rounded-2xl cursor-pointer`}
+                  ? 'btn-signal cursor-pointer'
+                  : 'bg-[#dfdacf] text-[#8b929a] border border-[#d5d0c5] cursor-not-allowed'
+              } w-full max-w-xs py-2.5 px-5 rounded-xl font-display font-semibold text-sm sm:text-base`}
             >
-              <span className="arcade-stroke text-white text-base sm:text-lg">
-                {spinning
-                  ? 'SPINNING...'
-                  : progression.spinTokens > 0
-                    ? `FREE TOKEN SPIN (${progression.spinTokens})`
-                    : `SPIN WHEEL · ${SPIN_COST_COINS} COINS`}
-              </span>
+              {spinning
+                ? 'Spinning Dial...'
+                : progression.spinTokens > 0
+                  ? `Use Dispatch Token (${progression.spinTokens})`
+                  : `Spin Wheel · ${SPIN_COST_COINS} Coins`}
             </button>
           </div>
         )}
 
-        {/* Resume Route CTA */}
+        {/* Return CTA */}
         <button
           type="button"
           onClick={() => {
             pokoAudio.playUiClick();
             onClose();
           }}
-          className="arcade-btn-cream w-full py-3 px-5 rounded-2xl cursor-pointer"
+          className="btn-stone w-full py-2.5 px-5 rounded-xl cursor-pointer font-display font-semibold text-sm sm:text-base"
         >
-          <span className="arcade-stroke text-white text-lg">
-            BACK TO SHIFT
-          </span>
+          Return to Shift
         </button>
       </div>
     </div>

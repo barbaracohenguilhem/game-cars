@@ -7,10 +7,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas } from './components/GameCanvas';
 import { GameHud, MinimapSnapshot } from './components/GameHud';
 import { GarageShopModal } from './components/GarageShopModal';
+import { MultiplayerModal } from './components/MultiplayerModal';
 import { QuestsRulesModal } from './components/QuestsRulesModal';
 import { StatusModal } from './components/StatusModal';
 import { TitleOverlay } from './components/TitleOverlay';
 import { pokoAudio } from './game/audio';
+import {
+  MultiplayerClientSnapshot,
+  multiplayerClient,
+  readInitialRoomFromUrl,
+} from './game/multiplayerClient';
 import { getLevelConfig } from './game/proceduralCity';
 import {
   SpinWheelSlice,
@@ -67,6 +73,19 @@ export default function App() {
   const [snapshot, setSnapshot] = useState<RunSnapshot | null>(null);
   const [shopOpen, setShopOpen] = useState<boolean>(false);
   const [questsOpen, setQuestsOpen] = useState<boolean>(false);
+  const [mpState, setMpState] = useState<MultiplayerClientSnapshot>(() =>
+    multiplayerClient.getSnapshot(),
+  );
+  const [mpModalOpen, setMpModalOpen] = useState<boolean>(() =>
+    Boolean(readInitialRoomFromUrl()),
+  );
+
+  const bestScoreRef = useRef<number>(bestScore);
+  bestScoreRef.current = bestScore;
+  const initVehRef = useRef<VehicleId>(progression.selectedVehicle);
+  initVehRef.current = progression.selectedVehicle;
+  const initTopRef = useRef<TopperId>(progression.selectedTopper);
+  initTopRef.current = progression.selectedTopper;
 
   const minimapRef = useRef<MinimapSnapshot>({
     city: null,
@@ -80,6 +99,117 @@ export default function App() {
   useEffect(() => {
     saveProgression(progression);
   }, [progression]);
+
+  // Keep multiplayer profile cosmetics synced whenever vehicle or topper changes
+  useEffect(() => {
+    multiplayerClient.syncCosmetics(
+      progression.selectedVehicle,
+      progression.selectedTopper,
+    );
+  }, [progression.selectedVehicle, progression.selectedTopper]);
+
+  // Connect real-time WebSocket multiplayer manager & listen for match start/finish events
+  useEffect(() => {
+    multiplayerClient.ensureConnected();
+    const unsubSnap = multiplayerClient.subscribe(setMpState);
+
+    const urlRoom = readInitialRoomFromUrl();
+    if (urlRoom) {
+      multiplayerClient.joinRoom(
+        urlRoom,
+        initVehRef.current,
+        initTopRef.current,
+      );
+      setMpModalOpen(true);
+    }
+
+    const unsubMatch = multiplayerClient.onMatchLifecycle((ev) => {
+      if (ev.type === 'started') {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        setMpModalOpen(false);
+        setShopOpen(false);
+        setQuestsOpen(false);
+        setActiveLevel(ev.room.level);
+        setHighestUnlockedLevel((prev) => Math.max(prev, ev.room.level));
+        setSnapshot(null);
+        setRunNonce((n) => n + 1);
+        document.body.dataset.state = GamePhase.Playing;
+        setPhase(GamePhase.Playing);
+        pokoAudio.playStartChime();
+        pokoAudio.setMusicPlaying(true);
+        const canvas = document.querySelector('canvas');
+        if (canvas instanceof HTMLElement) {
+          canvas.focus();
+        }
+      } else if (ev.type === 'finished') {
+        const cid = multiplayerClient.getSnapshot().clientId;
+        const myStanding = ev.room.standings.find((s) => s.id === cid);
+        const isVictory = ev.room.outcome === 'victory';
+        const outcomeKind = isVictory
+          ? OutcomeKind.Victory
+          : OutcomeKind.OutOfTime;
+        const deliveredCount = Object.keys(ev.room.claimedStops).length;
+        const myScore = myStanding?.score ?? 0;
+        const coinsEarned = myStanding?.coinsEarned ?? 30;
+        const starsEarned = isVictory ? (myStanding?.rank === 1 ? 3 : 2) : 0;
+        const earnedSpinToken = Boolean(isVictory && myStanding?.rank === 1);
+
+        const mpSnap: RunSnapshot = {
+          level: ev.room.level,
+          districtName: ev.room.districtName,
+          outcome: outcomeKind,
+          score: myScore,
+          bestScore: Math.max(bestScoreRef.current, myScore),
+          coinsEarned,
+          starsEarned,
+          earnedSpinToken,
+          deliveredCount,
+          totalStops: ev.room.totalStops,
+          bullseyeCount: myStanding?.bullseyes ?? 0,
+          timeRemainingSec: Math.max(0, Math.ceil(ev.room.timeRemainingSec)),
+          elapsedSec: 0,
+          maxCombo: 0,
+          healthRemaining: 3,
+          ticketsCount: myStanding?.tickets ?? 0,
+        };
+
+        setSnapshot(mpSnap);
+        setBestScore((prev) => Math.max(prev, myScore));
+        setProgression((prev) => {
+          const prevStars = prev.districtStars[ev.room.level] ?? 0;
+          const nextStars = Math.max(prevStars, starsEarned);
+          return {
+            ...prev,
+            coins: prev.coins + coinsEarned,
+            spinTokens: prev.spinTokens + (earnedSpinToken ? 1 : 0),
+            districtStars:
+              nextStars > prevStars
+                ? { ...prev.districtStars, [ev.room.level]: nextStars }
+                : prev.districtStars,
+          };
+        });
+        if (isVictory) {
+          setHighestUnlockedLevel((prev) => Math.max(prev, ev.room.level + 1));
+          pokoAudio.playStageClear();
+        } else {
+          pokoAudio.playGameOver();
+        }
+        setMpModalOpen(false);
+        setShopOpen(false);
+        setQuestsOpen(false);
+        pokoAudio.setMusicPlaying(false);
+        document.body.dataset.state = GamePhase.GameOver;
+        setPhase(GamePhase.GameOver);
+      }
+    });
+
+    return () => {
+      unsubSnap();
+      unsubMatch();
+    };
+  }, []);
 
   const initialCfg = getLevelConfig(activeLevel);
   const initialVehSpec =
@@ -131,9 +261,13 @@ export default function App() {
     demoRemainingSec: 0,
   });
 
-  // Pause simulation cleanly while Garage Shop or Quests modal is open
-  const effectiveCanvasPhase =
-    (shopOpen || questsOpen) && phase === GamePhase.Playing
+  // In live multiplayer shifts, keep the 3D world running smoothly even while overlays/menus are open
+  const inLiveMultiplayerShift = mpState.room?.status === 'playing';
+  const effectiveCanvasPhase = inLiveMultiplayerShift
+    ? phase === GamePhase.Paused
+      ? GamePhase.Playing
+      : phase
+    : (shopOpen || questsOpen || mpModalOpen) && phase === GamePhase.Playing
       ? GamePhase.Paused
       : phase;
 
@@ -147,6 +281,10 @@ export default function App() {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
+    if (multiplayerClient.getSnapshot().room) {
+      multiplayerClient.leaveRoom();
+    }
+    setMpModalOpen(false);
     setShopOpen(false);
     setQuestsOpen(false);
     document.body.dataset.state = GamePhase.Playing;
@@ -164,11 +302,56 @@ export default function App() {
     }
   }, []);
 
+  const handleEnterActiveMultiplayerShift = useCallback(() => {
+    const rm = multiplayerClient.getSnapshot().room;
+    if (!rm) return;
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setMpModalOpen(false);
+    setShopOpen(false);
+    setQuestsOpen(false);
+    setActiveLevel(rm.level);
+    setSnapshot(null);
+    setRunNonce((n) => n + 1);
+    document.body.dataset.state = GamePhase.Playing;
+    setPhase(GamePhase.Playing);
+    pokoAudio.playStartChime();
+    pokoAudio.setMusicPlaying(true);
+    const canvas = document.querySelector('canvas');
+    if (canvas instanceof HTMLElement) {
+      canvas.focus();
+    }
+  }, []);
+
   const handleRestart = useCallback(() => {
+    const snap = multiplayerClient.getSnapshot();
+    if (snap.room) {
+      if (snap.room.hostId === snap.clientId) {
+        multiplayerClient.startMatch(snap.room.level);
+      } else {
+        setMpModalOpen(true);
+      }
+      return;
+    }
     startPlaying(activeLevel);
   }, [activeLevel, startPlaying]);
 
   const handleNextLevel = useCallback(() => {
+    const snap = multiplayerClient.getSnapshot();
+    if (snap.room) {
+      if (snap.room.hostId === snap.clientId) {
+        const nextMpLvl =
+          snap.room.outcome === 'victory'
+            ? snap.room.level + 1
+            : snap.room.level;
+        setHighestUnlockedLevel((prev) => Math.max(prev, nextMpLvl));
+        multiplayerClient.startMatch(nextMpLvl);
+      } else {
+        setMpModalOpen(true);
+      }
+      return;
+    }
     const nextLvl = (snapshot?.level ?? activeLevel) + 1;
     setHighestUnlockedLevel((prev) => Math.max(prev, nextLvl));
     startPlaying(nextLvl);
@@ -249,22 +432,29 @@ export default function App() {
     }
     setShopOpen(false);
     setQuestsOpen(false);
+    setMpModalOpen(false);
     pokoAudio.setMusicPlaying(false);
     document.body.dataset.state = GamePhase.GameOver;
     setPhase(GamePhase.GameOver);
   }, []);
 
-  // Global keyboard shortcuts for Title Start, Mute [M], Restart [R], Garage [G], Quests [J], and Modal Escape
+  // Global keyboard shortcuts for Title Start, Mute [M], Restart [R], Garage [G], Quests [J], Multiplayer [L], and Modal Escape
   useEffect(() => {
     const onGlobalKey = (e: KeyboardEvent) => {
       if (e.repeat) return;
 
-      if (e.code === 'Escape' && (shopOpen || questsOpen)) {
+      if (e.code === 'Escape' && (shopOpen || questsOpen || mpModalOpen)) {
         e.preventDefault();
         e.stopImmediatePropagation();
         pokoAudio.playUiClick();
         setShopOpen(false);
         setQuestsOpen(false);
+        setMpModalOpen(false);
+        return;
+      }
+
+      const targetTag = (e.target as HTMLElement | null)?.tagName;
+      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') {
         return;
       }
 
@@ -272,6 +462,7 @@ export default function App() {
         phase === GamePhase.Title &&
         !shopOpen &&
         !questsOpen &&
+        !mpModalOpen &&
         (e.code === 'Enter' || e.code === 'Space')
       ) {
         e.preventDefault();
@@ -283,6 +474,7 @@ export default function App() {
         phase === GamePhase.GameOver &&
         !shopOpen &&
         !questsOpen &&
+        !mpModalOpen &&
         (e.code === 'Enter' || e.code === 'Space')
       ) {
         e.preventDefault();
@@ -296,14 +488,21 @@ export default function App() {
       }
       if (e.code === 'KeyM') {
         handleToggleMute();
+      } else if (e.code === 'KeyL') {
+        pokoAudio.playUiClick();
+        setShopOpen(false);
+        setQuestsOpen(false);
+        setMpModalOpen((v) => !v);
       } else if (
         e.code === 'KeyG' &&
         (phase === GamePhase.Playing ||
           phase === GamePhase.Paused ||
-          phase === GamePhase.GameOver)
+          phase === GamePhase.GameOver ||
+          mpModalOpen)
       ) {
         pokoAudio.playUiClick();
         setQuestsOpen(false);
+        setMpModalOpen(false);
         setShopOpen((v) => !v);
       } else if (
         e.code === 'KeyJ' &&
@@ -311,12 +510,15 @@ export default function App() {
       ) {
         pokoAudio.playUiClick();
         setShopOpen(false);
+        setMpModalOpen(false);
         setQuestsOpen((v) => !v);
       } else if (
         e.code === 'KeyR' &&
         phase === GamePhase.Playing &&
         !shopOpen &&
-        !questsOpen
+        !questsOpen &&
+        !mpModalOpen &&
+        !mpState.room
       ) {
         handleRestart();
       }
@@ -329,6 +531,8 @@ export default function App() {
     snapshot,
     shopOpen,
     questsOpen,
+    mpModalOpen,
+    mpState.room,
     startPlaying,
     handleNextLevel,
     handleRestart,
@@ -355,6 +559,8 @@ export default function App() {
         selectedTopper={progression.selectedTopper}
         walletCoins={progression.coins}
         startWithShield={progression.nextFreeShield}
+        multiplayerRoom={mpState.room}
+        localClientId={mpState.clientId}
         minimapRef={minimapRef}
         onHudUpdate={setHud}
         onPhaseChange={setPhase}
@@ -364,13 +570,21 @@ export default function App() {
         onConsumeStartShield={handleConsumeStartShield}
       />
 
-      {phase === GamePhase.Title && (
+      {phase === GamePhase.Title && !mpModalOpen && !shopOpen && (
         <TitleOverlay
           selectedLevel={activeLevel}
           highestUnlockedLevel={highestUnlockedLevel}
           muted={muted}
+          onlineCount={mpState.onlineCount}
+          activeRoomCode={mpState.room?.roomId ?? null}
           onSelectLevel={(lvl) => setActiveLevel(lvl)}
           onStart={() => startPlaying(activeLevel)}
+          onOpenMultiplayer={() => {
+            pokoAudio.playUiClick();
+            setShopOpen(false);
+            setQuestsOpen(false);
+            setMpModalOpen(true);
+          }}
           onToggleMute={handleToggleMute}
         />
       )}
@@ -382,32 +596,45 @@ export default function App() {
           muted={muted}
           hasClaimableQuest={hasClaimableQuest}
           hasFreeSpin={hasFreeSpin}
+          multiplayerRoom={mpState.room}
+          localClientId={mpState.clientId}
           onToggleMute={handleToggleMute}
           onPause={() => {
             pokoAudio.playUiClick();
             setShopOpen(false);
             setQuestsOpen(false);
+            setMpModalOpen(false);
             setPhase(GamePhase.Paused);
           }}
           onOpenQuests={() => {
             pokoAudio.playUiClick();
             setShopOpen(false);
+            setMpModalOpen(false);
             setQuestsOpen(true);
           }}
           onOpenShop={() => {
             pokoAudio.playUiClick();
             setQuestsOpen(false);
+            setMpModalOpen(false);
             setShopOpen(true);
+          }}
+          onOpenMultiplayer={() => {
+            pokoAudio.playUiClick();
+            setShopOpen(false);
+            setQuestsOpen(false);
+            setMpModalOpen(true);
           }}
           onRestart={handleRestart}
         />
       )}
 
-      {!shopOpen && !questsOpen && (
+      {!shopOpen && !questsOpen && !mpModalOpen && (
         <StatusModal
           phase={phase}
           snapshot={snapshot}
           currentLevel={activeLevel}
+          multiplayerRoom={mpState.room}
+          localClientId={mpState.clientId}
           onResume={() => {
             document.body.dataset.state = GamePhase.Playing;
             setPhase(GamePhase.Playing);
@@ -418,12 +645,43 @@ export default function App() {
             pokoAudio.playUiClick();
             setShopOpen(true);
           }}
+          onOpenMultiplayer={() => {
+            pokoAudio.playUiClick();
+            if (mpState.room?.status === 'finished') {
+              multiplayerClient.returnRoomToLobby();
+            }
+            setMpModalOpen(true);
+          }}
+          onLeaveMultiplayer={() => {
+            pokoAudio.playUiClick();
+            multiplayerClient.leaveRoom();
+            setMpModalOpen(false);
+            document.body.dataset.state = GamePhase.Title;
+            setPhase(GamePhase.Title);
+          }}
           onBackToTitle={() => {
+            if (mpState.room) {
+              multiplayerClient.leaveRoom();
+            }
             document.body.dataset.state = GamePhase.Title;
             setPhase(GamePhase.Title);
           }}
         />
       )}
+
+      <MultiplayerModal
+        open={mpModalOpen}
+        mpState={mpState}
+        selectedVehicle={progression.selectedVehicle}
+        selectedTopper={progression.selectedTopper}
+        preferredLevel={activeLevel}
+        onOpenShop={() => {
+          setMpModalOpen(false);
+          setShopOpen(true);
+        }}
+        onEnterActiveShift={handleEnterActiveMultiplayerShift}
+        onClose={() => setMpModalOpen(false)}
+      />
 
       <GarageShopModal
         open={shopOpen}

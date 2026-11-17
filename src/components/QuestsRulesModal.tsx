@@ -19,36 +19,39 @@ export const QuestsRulesModal: React.FC<QuestsRulesModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-black/45 overflow-y-auto"
+      className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-[#10151b]/50 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="quests-modal-heading"
     >
-      <div className="pointer-events-auto arcade-panel rounded-3xl p-4 sm:p-6 w-full max-w-[520px] my-auto flex flex-col gap-3.5">
+      <div className="pointer-events-auto nordic-sheet rounded-2xl p-5 sm:p-6 w-full max-w-[520px] my-auto flex flex-col gap-4">
         {/* Header */}
-        <div className="arcade-pill-brown rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-extrabold text-[#ffee1f] tracking-wide">
-              Clipboard Bounties &amp; Handbook
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <div className="font-mono-num text-[11px] font-medium uppercase tracking-[0.14em] text-[#525b65]">
+              Active Bounties · Field Guide
             </div>
             <h2
               id="quests-modal-heading"
-              className="arcade-stroke text-white text-2xl sm:text-3xl leading-tight"
+              className="font-display text-2xl sm:text-[28px] font-bold text-[#181d23] leading-tight"
             >
-              SHIFT QUESTS
+              Shift Manifest
             </h2>
           </div>
 
-          <div className="bg-[#2b1b08] border-2 border-[#140c04] rounded-full px-3 py-1 flex items-center gap-1.5">
-            <span className="inline-block w-3.5 h-3.5 rounded-full bg-[#ffe524] border border-[#140c04]" />
-            <span className="arcade-stroke-sm text-[#ffe524] text-base leading-none">
+          <div className="nordic-inset rounded-lg px-3 py-1.5 flex items-center gap-2">
+            <span
+              className="w-2.5 h-2.5 rounded-full bg-[#eab308]"
+              aria-hidden="true"
+            />
+            <span className="font-mono-num text-sm sm:text-base font-semibold text-[#181d23] leading-none">
               {progression.coins.toLocaleString()}
             </span>
           </div>
         </div>
 
-        {/* 3 Rotating Shift Quests */}
-        <div className="flex flex-col gap-2">
+        {/* 3 Rotating Shift Bounties */}
+        <div className="flex flex-col gap-2.5">
           {progression.quests.map((q) => {
             const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
             const readyToClaim = q.progress >= q.target && !q.claimed;
@@ -56,20 +59,25 @@ export const QuestsRulesModal: React.FC<QuestsRulesModalProps> = ({
             return (
               <div
                 key={q.id}
-                className="arcade-pill-brown rounded-2xl p-3 flex items-center justify-between gap-3"
+                className="bg-white border border-[#d5d0c5] rounded-xl p-3.5 flex items-center justify-between gap-3.5"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="arcade-stroke-sm text-white text-sm sm:text-base truncate">
-                    {q.title}
-                  </div>
-                  <div className="mt-1.5 h-4 bg-[#2b1b08] border-2 border-[#140c04] rounded-full overflow-hidden relative">
-                    <div
-                      className="h-full arcade-bar-gold transition-all duration-200"
-                      style={{ width: `${pct}%` }}
-                    />
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white drop-shadow">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-display font-semibold text-sm sm:text-[15px] text-[#181d23] truncate">
+                      {q.title}
+                    </span>
+                    <span className="font-mono-num text-xs font-medium text-[#525b65] shrink-0">
                       {q.progress}/{q.target}
                     </span>
+                  </div>
+
+                  <div className="mt-2 h-2 bg-[#eae6dd] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-200 ${
+                        readyToClaim ? 'bg-[#16a34a]' : 'bg-[#ff551e]'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
                 </div>
 
@@ -80,17 +88,13 @@ export const QuestsRulesModal: React.FC<QuestsRulesModalProps> = ({
                       pokoAudio.playSpinReward();
                       onClaimQuest(q.id);
                     }}
-                    className="arcade-btn-green py-2 px-3.5 rounded-xl cursor-pointer shrink-0"
+                    className="btn-pine py-2 px-3.5 rounded-lg cursor-pointer shrink-0 font-mono-num font-semibold text-xs"
                   >
-                    <span className="arcade-stroke-sm text-white text-xs sm:text-sm">
-                      CLAIM +{q.rewardCoins}
-                    </span>
+                    Claim +{q.rewardCoins}
                   </button>
                 ) : (
-                  <div className="bg-[#2b1b08] border-2 border-[#140c04] rounded-xl px-3 py-1.5 shrink-0 text-center">
-                    <span className="arcade-stroke-sm text-[#ffe524] text-xs sm:text-sm">
-                      +{q.rewardCoins}
-                    </span>
+                  <div className="font-mono-num text-xs font-semibold text-[#525b65] shrink-0 pl-1">
+                    +{q.rewardCoins} Coins
                   </div>
                 )}
               </div>
@@ -98,23 +102,24 @@ export const QuestsRulesModal: React.FC<QuestsRulesModalProps> = ({
           })}
         </div>
 
-        {/* Compact Field Handbook */}
-        <div className="bg-[#fffdf5] border-[2.5px] border-[#1d1205] rounded-2xl p-3 text-xs font-semibold text-slate-800 flex flex-col gap-1.5">
+        {/* Concise Operational Field Guide */}
+        <div className="nordic-inset rounded-xl p-3.5 text-xs text-[#181d23]/90 leading-relaxed flex flex-col gap-2">
           <div>
-            <strong className="font-display text-[#2b1b08]">
-              Driving &amp; Horn [Q]:
+            <strong className="font-display font-semibold text-[#181d23]">
+              Right-Lane Transit &amp; Bell [Q]:
             </strong>{' '}
-            Keep in the <strong>Right Lane</strong>, obey signals (or grab{' '}
-            <strong>Green-Wave Orbs</strong>), and honk <strong>[Q]</strong> to calm
-            scooters &amp; hurry ducklings!
+            Keep right, obey traffic signals (or collect{' '}
+            <strong>Green-Wave</strong> relays), and ring <strong>[Q]</strong> to
+            calm scooters and clear duckling crossings.
           </div>
           <div>
-            <strong className="font-display text-[#784812]">
-              Parcels &amp; Bullseyes:
+            <strong className="font-display font-semibold text-[#181d23]">
+              Special Parcels &amp; Bays:
             </strong>{' '}
-            Drop on the inner <strong>Gold Bullseye</strong> for +2x Combo! Deliver{' '}
-            <strong>Hot Thermal</strong> bags fast, brake for <strong>Large Crates</strong>,
-            and hit <strong>Wrench Garages</strong> for Hull + Shield!
+            Drop on inner <strong>Bullseyes</strong> for +2x Combo, deliver{' '}
+            <strong>Thermal</strong> bags while warm, brake for{' '}
+            <strong>Large Crates</strong>, and visit <strong>Service Bays</strong>{' '}
+            for hull repair + shield.
           </div>
         </div>
 
@@ -124,11 +129,9 @@ export const QuestsRulesModal: React.FC<QuestsRulesModalProps> = ({
             pokoAudio.playUiClick();
             onClose();
           }}
-          className="arcade-btn-gold w-full py-3 px-5 rounded-2xl cursor-pointer"
+          className="btn-signal w-full py-3 px-5 rounded-xl cursor-pointer font-display font-semibold text-base"
         >
-          <span className="arcade-stroke text-white text-lg sm:text-xl">
-            RESUME SHIFT
-          </span>
+          Resume Shift
         </button>
       </div>
     </div>

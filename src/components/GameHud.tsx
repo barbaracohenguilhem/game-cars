@@ -1,4 +1,21 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Bell,
+  ClipboardCheck,
+  Clock,
+  Navigation,
+  Package,
+  Pause,
+  RotateCcw,
+  Shield,
+  Timer,
+  Users,
+  Volume2,
+  VolumeX,
+  Warehouse,
+  Zap,
+} from 'lucide-react';
+import type { MultiplayerRoomState } from '../game/multiplayerTypes';
 import { resetTouchControls, touchControls } from '../game/touchControls';
 import {
   GeneratedCity,
@@ -11,12 +28,22 @@ import {
   TileType,
 } from '../game/types';
 
+export interface MinimapRemotePlayer {
+  id: string;
+  x: number;
+  z: number;
+  yaw: number;
+  colorHex: string;
+  callsign: string;
+}
+
 export interface MinimapSnapshot {
   city: GeneratedCity | null;
   truckX: number;
   truckZ: number;
   truckYaw: number;
   activeStopIndex: number;
+  remotePlayers?: MinimapRemotePlayer[];
 }
 
 interface GameHudProps {
@@ -25,10 +52,13 @@ interface GameHudProps {
   muted: boolean;
   hasClaimableQuest: boolean;
   hasFreeSpin: boolean;
+  multiplayerRoom?: MultiplayerRoomState | null;
+  localClientId?: string;
   onToggleMute: () => void;
   onPause: () => void;
   onOpenQuests: () => void;
   onOpenShop: () => void;
+  onOpenMultiplayer?: () => void;
   onRestart: () => void;
 }
 
@@ -57,72 +87,73 @@ function triggerWindowKeyPulse(code: string): void {
 const CustomerPortraitSvg: React.FC<{ appearance: PersonAppearance | null }> = ({
   appearance,
 }) => {
-  const skin = appearance ? toHexColor(appearance.skinColor) : '#f7d5bc';
-  const hair = appearance ? toHexColor(appearance.hairColor) : '#593a27';
-  const top = appearance ? toHexColor(appearance.topColor) : '#4ea8de';
-  const accent = appearance ? toHexColor(appearance.accentColor) : '#f4845f';
+  const skin = appearance ? toHexColor(appearance.skinColor) : '#f2d3be';
+  const hair = appearance ? toHexColor(appearance.hairColor) : '#46372d';
+  const top = appearance ? toHexColor(appearance.topColor) : '#3b5b7e';
+  const accent = appearance ? toHexColor(appearance.accentColor) : '#c84b31';
   const isHat =
     appearance?.hairStyle === 'cap' || appearance?.hairStyle === 'sunhat';
 
   return (
     <svg
       viewBox="0 0 40 40"
-      className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl bg-sky-100 border-[2.5px] border-[#1d1205]"
+      className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-lg bg-[#eae6dd] border border-white/20"
       aria-hidden="true"
     >
       <path
         d="M8 39c1-7 5.5-10.5 12-10.5S31 32 32 39"
         fill={top}
-        stroke="#1d1205"
-        strokeWidth="2.4"
+        stroke="#181d23"
+        strokeWidth="1.5"
       />
       <path
-        d="M16 29l4 3.5 4-3.5"
-        stroke="#ffffff"
-        strokeWidth="2.2"
+        d="M16.5 29.2l3.5 3 3.5-3"
+        stroke="#f5f3ee"
+        strokeWidth="1.5"
         strokeLinecap="round"
+        fill="none"
       />
       <circle
         cx="20"
         cy="19"
-        r="8.5"
+        r="8.2"
         fill={skin}
-        stroke="#1d1205"
-        strokeWidth="2.4"
+        stroke="#181d23"
+        strokeWidth="1.5"
       />
       {isHat ? (
         <>
           <path
-            d="M11 16c0-5.5 4-9 9-9s9 3.5 9 9H11z"
+            d="M11.5 16c0-5.2 3.8-8.6 8.5-8.6s8.5 3.4 8.5 8.6h-17z"
             fill={accent}
-            stroke="#1d1205"
-            strokeWidth="2.2"
+            stroke="#181d23"
+            strokeWidth="1.5"
           />
           <rect
-            x="8"
+            x="9"
             y="14.5"
-            width="24"
-            height="3"
-            rx="1.5"
-            fill={appearance?.hairStyle === 'sunhat' ? '#f3d48e' : accent}
-            stroke="#1d1205"
-            strokeWidth="2"
+            width="22"
+            height="2.6"
+            rx="1.3"
+            fill={appearance?.hairStyle === 'sunhat' ? '#e2cb9c' : accent}
+            stroke="#181d23"
+            strokeWidth="1.4"
           />
         </>
       ) : (
         <path
-          d="M11.5 18c0-6 3.8-9.5 8.5-9.5s8.5 3.5 8.5 9.5c-2-2.2-5-3.2-8.5-3.2s-6.5 1-8.5 3.2z"
+          d="M11.8 18c0-5.8 3.7-9.2 8.2-9.2s8.2 3.4 8.2 9.2c-1.9-2.1-4.8-3-8.2-3s-6.3.9-8.2 3z"
           fill={hair}
-          stroke="#1d1205"
-          strokeWidth="2.2"
+          stroke="#181d23"
+          strokeWidth="1.5"
         />
       )}
-      <circle cx="17" cy="19.5" r="1.4" fill="#1d1205" />
-      <circle cx="23" cy="19.5" r="1.4" fill="#1d1205" />
+      <circle cx="17.2" cy="19.5" r="1.2" fill="#181d23" />
+      <circle cx="22.8" cy="19.5" r="1.2" fill="#181d23" />
       <path
-        d="M17.8 23.2q2.2 1.8 4.4 0"
-        stroke="#7c2d12"
-        strokeWidth="1.7"
+        d="M18 23.2q2 1.4 4 0"
+        stroke="#6b3e2e"
+        strokeWidth="1.4"
         strokeLinecap="round"
         fill="none"
       />
@@ -130,36 +161,12 @@ const CustomerPortraitSvg: React.FC<{ appearance: PersonAppearance | null }> = (
   );
 };
 
-/** Glossy red notification badge ("!") matching Reference 4 */
-const RedAlertBadge: React.FC = () => (
-  <svg
-    viewBox="0 0 28 28"
-    className="w-5 h-5 md:w-6 md:h-6 absolute -top-1 -right-1 drop-shadow-sm pointer-events-none"
+/** Crisp static Signal Orange indicator dot (zero pulsing slop) */
+const SignalDot: React.FC = () => (
+  <span
+    className="w-2.5 h-2.5 rounded-full bg-[#ff551e] border border-[#181d23] absolute -top-1 -right-1 pointer-events-none"
     aria-hidden="true"
-  >
-    <circle
-      cx="14"
-      cy="14"
-      r="11.5"
-      fill="#ff1f2d"
-      stroke="#1d1205"
-      strokeWidth="2.8"
-    />
-    <path
-      d="M7.5 10.5A8 8 0 0118.5 6"
-      stroke="#ff9aa2"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      fill="none"
-    />
-    <path
-      d="M15.2 7.2l-1.6 8.2"
-      stroke="#ffffff"
-      strokeWidth="3.6"
-      strokeLinecap="round"
-    />
-    <circle cx="13.2" cy="19.8" r="2" fill="#ffffff" />
-  </svg>
+  />
 );
 
 export const GameHud: React.FC<GameHudProps> = ({
@@ -168,21 +175,24 @@ export const GameHud: React.FC<GameHudProps> = ({
   muted,
   hasClaimableQuest,
   hasFreeSpin,
+  multiplayerRoom = null,
+  localClientId = '',
   onToggleMute,
   onPause,
   onOpenQuests,
   onOpenShop,
+  onOpenMultiplayer,
   onRestart,
 }) => {
-  const starClipId = useId();
   const mapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const steerRockerRef = useRef<HTMLDivElement | null>(null);
   const steerPointerIdRef = useRef<number | null>(null);
   const gasPointerIdRef = useRef<number | null>(null);
   const brakePointerIdRef = useRef<number | null>(null);
 
-  // Discrete pressed visual state for mobile touch buttons (updates only on press/release)
-  const [steerUiSide, setSteerUiSide] = useState<'none' | 'left' | 'right'>('none');
+  const [steerUiSide, setSteerUiSide] = useState<'none' | 'left' | 'right'>(
+    'none',
+  );
   const [gasPressed, setGasPressed] = useState(false);
   const [brakePressed, setBrakePressed] = useState(false);
 
@@ -197,7 +207,7 @@ export const GameHud: React.FC<GameHudProps> = ({
     if (!el) return;
     const rect = el.getBoundingClientRect();
     if (rect.width <= 0) return;
-    const norm = ((clientX - rect.left) / rect.width) * 2 - 1; // -1 .. +1
+    const norm = ((clientX - rect.left) / rect.width) * 2 - 1;
     if (Math.abs(norm) < 0.08) {
       touchControls.steerAnalog = 0;
       touchControls.steerLeft = false;
@@ -257,7 +267,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             : 185
           : 150;
 
-  // Lightweight 10Hz 2D Canvas Heading-Up GPS Radar
+  // Lightweight 10Hz 2D Canvas Heading-Up Architectural GPS Radar
   useEffect(() => {
     let pulseTick = 0;
     const drawMap = () => {
@@ -287,7 +297,8 @@ export const GameHud: React.FC<GameHudProps> = ({
       const vanScreenX = size * 0.5;
       const vanScreenY = size * 0.62;
 
-      ctx.fillStyle = '#4bb7ef';
+      // Deep Nordic Fjord Slate Water
+      ctx.fillStyle = '#243442';
       ctx.fillRect(0, 0, size, size);
 
       ctx.save();
@@ -300,13 +311,13 @@ export const GameHud: React.FC<GameHudProps> = ({
           const t = city.tiles[r][c];
           if (t === TileType.Water) continue;
           if (t === TileType.InnerRoad || t === TileType.OuterRoad) {
-            ctx.fillStyle = '#f8f5ec';
+            ctx.fillStyle = '#efede8';
           } else if (t === TileType.Bridge) {
-            ctx.fillStyle = '#e7b171';
+            ctx.fillStyle = '#d4c3a9';
           } else if (t === TileType.Building) {
-            ctx.fillStyle = '#8ec96b';
+            ctx.fillStyle = '#8c969e';
           } else {
-            ctx.fillStyle = '#a7e074';
+            ctx.fillStyle = '#697d64';
           }
           ctx.fillRect(
             c * cell,
@@ -322,18 +333,18 @@ export const GameHud: React.FC<GameHudProps> = ({
         const ewGo =
           sig.state === SignalAxisState.EWGreen ||
           sig.state === SignalAxisState.EWYellow;
-        ctx.fillStyle = ewGo ? '#10b981' : '#ef4444';
-        ctx.fillRect(mx - 2.1, my - 2.1, 4.2, 4.2);
+        ctx.fillStyle = ewGo ? '#16a34a' : '#dc2626';
+        ctx.fillRect(mx - 2.0, my - 2.0, 4.0, 4.0);
       }
 
       for (const kiosk of city.coffeeKiosks) {
         if (kiosk.cooldown > 0) continue;
         const { mx, my } = worldToMap(kiosk.roadX, kiosk.roadZ);
-        ctx.fillStyle = '#2dd4bf';
-        ctx.strokeStyle = '#1d1205';
-        ctx.lineWidth = 1.1;
+        ctx.fillStyle = '#2a9d8f';
+        ctx.strokeStyle = '#181d23';
+        ctx.lineWidth = 1.0;
         ctx.beginPath();
-        ctx.arc(mx, my, 2.4, 0, Math.PI * 2);
+        ctx.arc(mx, my, 2.3, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }
@@ -341,11 +352,11 @@ export const GameHud: React.FC<GameHudProps> = ({
       for (const gar of city.mechanicGarages) {
         if (gar.cooldown > 0) continue;
         const { mx, my } = worldToMap(gar.roadX, gar.roadZ);
-        ctx.fillStyle = '#38bdf8';
-        ctx.strokeStyle = '#1d1205';
-        ctx.lineWidth = 1.1;
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = '#181d23';
+        ctx.lineWidth = 1.0;
         ctx.beginPath();
-        ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
+        ctx.arc(mx, my, 2.4, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }
@@ -359,27 +370,27 @@ export const GameHud: React.FC<GameHudProps> = ({
           city.rivalCourier.bonusDropPos.x,
           city.rivalCourier.bonusDropPos.z,
         );
-        ctx.fillStyle = '#ffee1f';
-        ctx.strokeStyle = '#7c3aed';
-        ctx.lineWidth = 1.4;
+        ctx.fillStyle = '#eab308';
+        ctx.strokeStyle = '#181d23';
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.arc(bp.mx, bp.my, 3.0, 0, Math.PI * 2);
+        ctx.arc(bp.mx, bp.my, 2.9, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         const rv = worldToMap(city.rivalCourier.x, city.rivalCourier.z);
-        ctx.fillStyle = '#a855f7';
+        ctx.fillStyle = '#c84b31';
         ctx.beginPath();
-        ctx.arc(rv.mx, rv.my, 2.4, 0, Math.PI * 2);
+        ctx.arc(rv.mx, rv.my, 2.3, 0, Math.PI * 2);
         ctx.fill();
       }
 
       for (const h of city.hazards) {
         const { mx, my } = worldToMap(h.x, h.z);
         ctx.fillStyle =
-          h.kind === HazardKind.BridgeGate ? '#f59e0b' : '#ef4444';
+          h.kind === HazardKind.BridgeGate ? '#eab308' : '#dc2626';
         ctx.beginPath();
-        ctx.arc(mx, my, 2.1, 0, Math.PI * 2);
+        ctx.arc(mx, my, 2.0, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -387,33 +398,55 @@ export const GameHud: React.FC<GameHudProps> = ({
         const mx = (stop.roadCoord.col + 0.5) * cell;
         const my = (stop.roadCoord.row + 0.5) * cell;
         if (stop.delivered) {
-          ctx.fillStyle = '#26c42f';
+          ctx.fillStyle = '#16a34a';
           ctx.beginPath();
-          ctx.arc(mx, my, 2.8, 0, Math.PI * 2);
+          ctx.arc(mx, my, 2.7, 0, Math.PI * 2);
           ctx.fill();
         } else if (stop.index === snap.activeStopIndex) {
-          const ringR = 5.4 + Math.sin(pulseTick * 0.55) * 1.8;
-          ctx.strokeStyle = '#ffdf24';
-          ctx.lineWidth = 2.2;
+          const ringR = 5.4 + Math.sin(pulseTick * 0.5) * 1.6;
+          ctx.strokeStyle = '#ff551e';
+          ctx.lineWidth = 1.9;
           ctx.beginPath();
           ctx.arc(mx, my, ringR, 0, Math.PI * 2);
           ctx.stroke();
 
-          ctx.fillStyle = '#ff9914';
-          ctx.strokeStyle = '#1d1205';
-          ctx.lineWidth = 1.6;
+          ctx.fillStyle = '#ff551e';
+          ctx.strokeStyle = '#181d23';
+          ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.arc(mx, my, 3.9, 0, Math.PI * 2);
+          ctx.arc(mx, my, 3.6, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         } else {
-          ctx.fillStyle = '#fffbeb';
-          ctx.strokeStyle = '#1d1205';
-          ctx.lineWidth = 1.2;
+          ctx.fillStyle = '#f5f3ee';
+          ctx.strokeStyle = '#181d23';
+          ctx.lineWidth = 1.1;
           ctx.beginPath();
-          ctx.arc(mx, my, 2.7, 0, Math.PI * 2);
+          ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
+        }
+      }
+
+      // Remote Multiplayer Courier Chevrons in world space
+      if (snap.remotePlayers && snap.remotePlayers.length > 0) {
+        for (const rp of snap.remotePlayers) {
+          const rpt = worldToMap(rp.x, rp.z);
+          ctx.save();
+          ctx.translate(rpt.mx, rpt.my);
+          ctx.rotate(-rp.yaw + Math.PI);
+          ctx.fillStyle = rp.colorHex || '#2a9d8f';
+          ctx.strokeStyle = '#181d23';
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.moveTo(0, -4.8);
+          ctx.lineTo(-3.4, 3.6);
+          ctx.lineTo(0, 1.7);
+          ctx.lineTo(3.4, 3.6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
         }
       }
 
@@ -422,9 +455,9 @@ export const GameHud: React.FC<GameHudProps> = ({
       // Heading-Up Courier Van Chevron
       ctx.save();
       ctx.translate(vanScreenX, vanScreenY);
-      ctx.fillStyle = '#ffdf24';
-      ctx.strokeStyle = '#1d1205';
-      ctx.lineWidth = 1.8;
+      ctx.fillStyle = '#ff551e';
+      ctx.strokeStyle = '#f5f3ee';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, -5.8);
       ctx.lineTo(-4.2, 4.2);
@@ -443,177 +476,93 @@ export const GameHud: React.FC<GameHudProps> = ({
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4 select-none">
-      {/* Subtle low-HP warm peripheral border cue */}
+      {/* Subtle critical hull frame cue */}
       {isCriticalHealth && (
         <div
-          className="fixed inset-0 pointer-events-none border-8 border-rose-500/45 rounded-none"
+          className="fixed inset-0 pointer-events-none border-4 border-[#dc2626]/55"
           aria-hidden="true"
         />
       )}
 
-      {/* TOP ROW: Reference 1 Resource Pills + Center Desktop Alerts + Reference 2 Top-Right Boost & Clock (Hidden on Mobile during 3-2-1!) */}
+      {/* TOP TELEMETRY BAR (Hidden on mobile during 3-2-1 countdown) */}
       <div
         className={`${
           isPreGoCountdown ? 'hidden md:flex' : 'flex'
         } flex-col gap-1.5`}
       >
-        <div className="flex items-start justify-between gap-1.5 sm:gap-2">
-          {/* LEFT COLUMN: Reference 1 Top-Left Resource Pills + Reference 4 Left-Edge Dock Buttons */}
-          <div className="flex flex-col items-start gap-1.5 md:gap-2.5 min-w-0">
-            {/* Reference 1: 3-Pill Horizontal Resource Bar (Responsive for both 375px Mobile & 1440px Desktop!) */}
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 md:gap-5">
-              {/* Pill 1: Tilted Golden Level Star + Golden Delivery Progress Bar */}
-              <div className="flex items-center">
-                <div className="relative w-10 h-10 md:w-14 md:h-14 -mr-3.5 md:-mr-5 z-10 shrink-0 flex items-center justify-center">
-                  <svg
-                    viewBox="0 0 56 56"
-                    className="w-full h-full drop-shadow-sm overflow-visible"
-                    aria-hidden="true"
-                  >
-                    <defs>
-                      <clipPath id={starClipId}>
-                        <path d="M26.0 7.85 Q28.0 4.8 30.0 7.85 L35.01 15.48 Q36.35 17.51 38.70 18.15 L47.50 20.56 Q51.02 21.52 48.74 24.37 L43.03 31.49 Q41.51 33.39 41.62 35.82 L42.05 44.93 Q42.22 48.58 38.81 47.29 L30.28 44.06 Q28.0 43.2 25.72 44.06 L17.19 47.29 Q13.78 48.58 13.95 44.93 L14.38 35.82 Q14.49 33.39 12.97 31.49 L7.26 24.37 Q4.98 21.52 8.50 20.56 L17.30 18.15 Q19.65 17.51 20.99 15.48 Z" />
-                      </clipPath>
-                    </defs>
-                    <g transform="rotate(-6 28 29)">
-                      <g clipPath={`url(#${starClipId})`}>
-                        <rect x="0" y="0" width="56" height="56" fill="#ffe629" />
-                        <path
-                          d="M56 17 L56 56 L0 56 L12 33 L28.5 29.5 Z"
-                          fill="#f59e0b"
-                        />
-                        <ellipse
-                          cx="25"
-                          cy="16"
-                          rx="4.4"
-                          ry="6.5"
-                          transform="rotate(-16 25 16)"
-                          fill="#fffad6"
-                          opacity="0.92"
-                        />
-                      </g>
-                      <path
-                        d="M26.0 7.85 Q28.0 4.8 30.0 7.85 L35.01 15.48 Q36.35 17.51 38.70 18.15 L47.50 20.56 Q51.02 21.52 48.74 24.37 L43.03 31.49 Q41.51 33.39 41.62 35.82 L42.05 44.93 Q42.22 48.58 38.81 47.29 L30.28 44.06 Q28.0 43.2 25.72 44.06 L17.19 47.29 Q13.78 48.58 13.95 44.93 L14.38 35.82 Q14.49 33.39 12.97 31.49 L7.26 24.37 Q4.98 21.52 8.50 20.56 L17.30 18.15 Q19.65 17.51 20.99 15.48 Z"
-                        fill="none"
-                        stroke="#140c04"
-                        strokeWidth="3.8"
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                      />
-                    </g>
-                  </svg>
-                  <span
-                    className="absolute inset-0 flex items-center justify-center pt-1 md:pt-1.5 arcade-stroke text-white text-sm md:text-2xl leading-none"
-                    aria-label={`Stage ${hud.level}`}
-                  >
+        <div className="flex items-start justify-between gap-2">
+          {/* LEFT CLUSTER: Stage/Stops + Coins + Hull + Pause + Tactical Quick Actions */}
+          <div className="flex flex-col items-start gap-1.5 md:gap-2 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              {/* Stage & Delivery Progress Instrument */}
+              <div
+                className="tactical-panel rounded-xl h-9 md:h-10 px-2.5 md:px-3.5 flex items-center gap-2 md:gap-3"
+                aria-label={`Stage ${hud.level}, Deliveries ${hud.deliveredCount} of ${hud.totalStops}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="w-5 h-5 md:w-6 md:h-6 rounded-md bg-[#ff551e] text-white font-mono-num font-semibold text-xs md:text-sm flex items-center justify-center leading-none">
                     {hud.level}
                   </span>
+                  <span className="hidden sm:inline font-mono-num text-[10px] uppercase tracking-wider text-[#9ba3ae]">
+                    Drops
+                  </span>
                 </div>
 
-                <div
-                  className="arcade-pill-brown rounded-full h-8 md:h-10 w-[78px] sm:w-28 md:w-40 relative overflow-hidden flex items-center justify-end pr-2 md:pr-3.5 pl-4 md:pl-6"
-                  aria-label={`Deliveries ${hud.deliveredCount} of ${hud.totalStops}`}
-                >
+                <div className="w-12 sm:w-16 md:w-22 h-1.5 bg-white/15 rounded-full overflow-hidden">
                   <div
-                    className={`absolute left-0 top-0 bottom-0 arcade-bar-gold transition-all duration-200 ${
-                      deliveryPct < 100 ? 'border-r-[2.5px] border-[#140c04]' : ''
-                    }`}
-                    style={{ width: `${Math.max(26, deliveryPct)}%` }}
+                    className="h-full bg-[#ff551e] transition-all duration-200"
+                    style={{ width: `${deliveryPct}%` }}
                   />
-                  <span className="relative z-10 arcade-stroke-sm text-white text-xs sm:text-sm md:text-lg leading-none">
-                    {hud.deliveredCount}/{hud.totalStops}
-                  </span>
                 </div>
+
+                <span className="font-mono-num text-xs md:text-sm font-semibold text-[#f4f3ef] leading-none">
+                  {hud.deliveredCount}/{hud.totalStops}
+                </span>
               </div>
 
-              {/* Pill 2: Gold Coin Score Counter */}
-              <div className="flex items-center">
-                <svg
-                  viewBox="0 0 48 48"
-                  className="w-8 h-8 md:w-13 md:h-13 -mr-3.5 md:-mr-5 z-10 shrink-0 drop-shadow-sm"
+              {/* Coins Instrument */}
+              <div
+                className="tactical-panel rounded-xl h-9 md:h-10 px-2.5 md:px-3.5 flex items-center gap-2"
+                aria-label={`Coins ${hud.coins}, Score ${hud.score}`}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full bg-[#eab308] shrink-0"
                   aria-hidden="true"
-                >
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    fill="#ffe524"
-                    stroke="#140c04"
-                    strokeWidth="3.6"
-                  />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="14"
-                    fill="#df8f0d"
-                    stroke="#b86b00"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M24 13v22M28.5 18.2c0-2-2-3.2-4.5-3.2s-4.5 1.2-4.5 3.1c0 4.3 9 2.6 9 7.4 0 2.1-2 3.5-4.5 3.5s-4.5-1.3-4.5-3.4"
-                    stroke="#ffe629"
-                    strokeWidth="3.4"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                </svg>
-
-                <div
-                  className="arcade-pill-brown rounded-full h-8 md:h-10 min-w-[64px] sm:min-w-[96px] md:min-w-[148px] pl-4 md:pl-6 pr-2.5 md:pr-4 flex items-center justify-center gap-1"
-                  aria-label={`Coins ${hud.coins}, Score ${hud.score}`}
-                >
-                  <span className="arcade-stroke text-white text-sm sm:text-lg md:text-2xl leading-none">
-                    {hud.coins.toLocaleString()}
-                  </span>
-                </div>
+                />
+                <span className="font-mono-num text-xs sm:text-sm md:text-base font-semibold text-[#f4f3ef] leading-none">
+                  {hud.coins.toLocaleString()}
+                </span>
               </div>
 
-              {/* Pill 3: Faceted Red Ruby Hull Counter + Golden Square Pause Cap (Visible on BOTH Mobile & Desktop!) */}
-              <div className="flex items-center">
-                <svg
-                  viewBox="0 0 48 48"
-                  className="w-8 h-8 md:w-13 md:h-13 -mr-3 md:-mr-4 z-10 shrink-0 drop-shadow-sm"
-                  aria-hidden="true"
-                >
-                  <polygon
-                    points="14,8 34,8 44,20 24,43 4,20"
-                    fill="#ff2430"
-                    stroke="#140c04"
-                    strokeWidth="3.6"
-                    strokeLinejoin="round"
-                  />
-                  <polygon points="14,8 24,8 17,20 4,20" fill="#ff99a3" />
-                  <polygon points="34,8 44,20 31,20 24,8" fill="#d90429" />
-                  <polygon points="4,20 17,20 24,43" fill="#e0112b" />
-                  <polygon points="31,20 44,20 24,43" fill="#ad031b" />
-                  <polygon points="17,20 31,20 24,43" fill="#ff3b47" />
-                  <line
-                    x1="4"
-                    y1="20"
-                    x2="44"
-                    y2="20"
-                    stroke="#140c04"
-                    strokeWidth="2"
-                    strokeOpacity="0.45"
-                  />
-                </svg>
-
+              {/* Hull Integrity + Pause Control */}
+              <div className="flex items-center gap-1.5">
                 <div
-                  className="arcade-pill-brown rounded-l-full rounded-r-xl h-8 md:h-10 min-w-[54px] md:min-w-[110px] pl-3.5 md:pl-5 pr-2.5 md:pr-4 flex items-center justify-center gap-1"
+                  className="tactical-panel rounded-xl h-9 md:h-10 px-2.5 md:px-3.5 flex items-center gap-1.5 md:gap-2"
                   aria-label={`Van integrity ${hud.health} of ${hud.maxHealth}${
                     hud.hasBumperShield ? ', bumper shield active' : ''
                   }`}
                 >
+                  <Shield
+                    className={`w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 ${
+                      hud.hasBumperShield
+                        ? 'text-[#38bdf8]'
+                        : isCriticalHealth
+                          ? 'text-[#ff551e]'
+                          : 'text-[#9ba3ae]'
+                    }`}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  />
                   <span
-                    className={`arcade-stroke text-sm sm:text-lg md:text-2xl leading-none ${
-                      isCriticalHealth ? 'text-[#ffdf24]' : 'text-white'
+                    className={`font-mono-num text-xs sm:text-sm md:text-base font-semibold leading-none ${
+                      isCriticalHealth ? 'text-[#ff551e]' : 'text-[#f4f3ef]'
                     }`}
                   >
                     {hud.health}/{hud.maxHealth}
                   </span>
                   {hud.hasBumperShield && (
                     <span
-                      className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full bg-[#38bdf8] border-2 border-[#140c04] shrink-0"
+                      className="w-2 h-2 rounded-full bg-[#38bdf8] shrink-0"
                       title="Bumper Shield Active"
                     />
                   )}
@@ -628,100 +577,50 @@ export const GameHud: React.FC<GameHudProps> = ({
                     e.currentTarget.blur();
                     onPause();
                   }}
-                  className="pointer-events-auto arcade-cap-gold -ml-1.5 md:-ml-2 z-10 w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center cursor-pointer"
+                  className="pointer-events-auto tactical-btn w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center cursor-pointer"
                 >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 md:w-5 md:h-5" fill="none">
-                    <rect
-                      x="5.5"
-                      y="4.5"
-                      width="5"
-                      height="15"
-                      rx="1.5"
-                      fill="#ffffff"
-                      stroke="#140c04"
-                      strokeWidth="2.4"
-                    />
-                    <rect
-                      x="13.5"
-                      y="4.5"
-                      width="5"
-                      height="15"
-                      rx="1.5"
-                      fill="#ffffff"
-                      stroke="#140c04"
-                      strokeWidth="2.4"
-                    />
-                  </svg>
+                  <Pause
+                    className="w-4 h-4 text-[#f4f3ef]"
+                    strokeWidth={2.2}
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
 
-            {/* Reference 4: Left-Edge Semicircular Docked Action Buttons (Compact on Mobile, Full Size on Desktop) */}
-            <div className="pointer-events-auto -ml-2.5 sm:-ml-4 flex flex-col items-start gap-1.5 md:gap-2.5 mt-0.5 md:mt-1.5">
-              {/* Button 1: TURBO Wheel (with Red "!" Badge when Boost Ready) */}
+            {/* Tactical Quick-Action Strip */}
+            <div className="pointer-events-auto flex items-center gap-1.5">
+              {/* Desktop Turbo Trigger */}
               <button
                 type="button"
                 tabIndex={-1}
-                aria-label="Trigger turbo boost wheel [Shift]"
+                aria-label="Trigger turbo boost [Shift]"
                 title="Turbo Boost [Shift]"
                 onClick={(e) => {
                   e.currentTarget.blur();
                   touchControls.boostPulse = true;
                   triggerWindowKeyPulse('ShiftLeft');
                 }}
-                className="hidden md:flex arcade-dock-tab rounded-r-[34px] pl-3 pr-4 pt-2 pb-1.5 flex-col items-center relative cursor-pointer"
+                className="hidden md:flex tactical-btn rounded-lg px-2.5 py-1.5 items-center gap-1.5 relative cursor-pointer"
               >
-                {hud.boostReady && <RedAlertBadge />}
-                <svg
-                  viewBox="0 0 56 56"
-                  className="w-12 h-12 sm:w-13 sm:h-13 drop-shadow-sm"
+                {hud.boostReady && <SignalDot />}
+                <Zap
+                  className={`w-3.5 h-3.5 ${
+                    hud.isBoosting
+                      ? 'text-[#4ade80]'
+                      : hud.boostReady
+                        ? 'text-[#ff551e]'
+                        : 'text-[#9ba3ae]'
+                  }`}
+                  strokeWidth={2.1}
                   aria-hidden="true"
-                >
-                  <circle
-                    cx="28"
-                    cy="29"
-                    r="22"
-                    fill="#173763"
-                    stroke="#140c04"
-                    strokeWidth="3.5"
-                  />
-                  <path d="M28 29L28 10A19 19 0 0144.5 19.5Z" fill="#ff3b3b" />
-                  <path d="M28 29L44.5 19.5A19 19 0 0144.5 38.5Z" fill="#2ee54d" />
-                  <path d="M28 29L44.5 38.5A19 19 0 0128 48Z" fill="#ffdf24" />
-                  <path d="M28 29L28 48A19 19 0 0111.5 38.5Z" fill="#ff3b3b" />
-                  <path d="M28 29L11.5 38.5A19 19 0 0111.5 19.5Z" fill="#ffdf24" />
-                  <path d="M28 29L11.5 19.5A19 19 0 0128 10Z" fill="#2ee54d" />
-                  <circle
-                    cx="28"
-                    cy="29"
-                    r="19"
-                    fill="none"
-                    stroke="#140c04"
-                    strokeWidth="2.4"
-                  />
-                  <polygon
-                    points="18,7 38,7 28,27"
-                    fill="#ffdf24"
-                    stroke="#140c04"
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                  />
-                  <circle
-                    cx="28"
-                    cy="29"
-                    r="6"
-                    fill="#ffdf24"
-                    stroke="#140c04"
-                    strokeWidth="2.8"
-                  />
-                  <circle cx="28" cy="29" r="2.6" fill="#ff2430" />
-                </svg>
-                <span className="-mt-1.5 arcade-stroke-sm text-white text-sm sm:text-base uppercase leading-none">
-                  {hud.isBoosting ? 'ACTIVE' : 'TURBO'}
+                />
+                <span className="font-mono-num text-[11px] font-semibold uppercase tracking-wider text-[#f4f3ef]">
+                  {hud.isBoosting ? 'Active' : 'Boost'}
                 </span>
               </button>
 
-              {/* Button 2: Golden Stopwatch RETRY */}
+              {/* Retry Stage */}
               <button
                 type="button"
                 tabIndex={-1}
@@ -731,152 +630,139 @@ export const GameHud: React.FC<GameHudProps> = ({
                   e.currentTarget.blur();
                   onRestart();
                 }}
-                className="arcade-dock-tab rounded-r-[26px] md:rounded-r-[34px] pl-2.5 md:pl-3 pr-3 md:pr-4 pt-1.5 md:pt-2 pb-1 md:pb-1.5 flex flex-col items-center relative cursor-pointer"
+                className="tactical-btn rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer"
               >
-                <svg
-                  viewBox="0 0 56 56"
-                  className="w-9 h-9 md:w-13 md:h-13 drop-shadow-sm"
+                <RotateCcw
+                  className="w-3.5 h-3.5 text-[#9ba3ae]"
+                  strokeWidth={2.1}
                   aria-hidden="true"
-                >
-                  <polygon
-                    points="31,5 43,10 39,16 28,11"
-                    fill="#ffdf24"
-                    stroke="#140c04"
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                  />
-                  <circle
-                    cx="27"
-                    cy="31"
-                    r="20"
-                    fill="#ffbf14"
-                    stroke="#140c04"
-                    strokeWidth="3.5"
-                  />
-                  <path
-                    d="M13 21A17 17 0 0138 16"
-                    stroke="#fff394"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                  <circle
-                    cx="27"
-                    cy="31"
-                    r="13.5"
-                    fill="#ffffff"
-                    stroke="#140c04"
-                    strokeWidth="2.4"
-                  />
-                  <path
-                    d="M25.5 21.5l1.5 9.5"
-                    stroke="#140c04"
-                    strokeWidth="3.2"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="27" cy="31" r="2.6" fill="#140c04" />
-                  <circle cx="18" cy="27" r="1.5" fill="#475569" />
-                  <circle cx="36" cy="27" r="1.5" fill="#475569" />
-                  <circle cx="21" cy="38" r="1.5" fill="#475569" />
-                  <circle cx="33" cy="38" r="1.5" fill="#475569" />
-                </svg>
-                <span className="-mt-1 md:-mt-1.5 arcade-stroke-sm text-white text-[11px] md:text-base uppercase leading-none">
-                  RETRY
+                />
+                <span className="font-mono-num text-[11px] font-semibold uppercase tracking-wider text-[#f4f3ef]">
+                  Retry
                 </span>
               </button>
 
-              {/* Button 3: Wooden Clipboard with Red Checkmark QUESTS (Reference 4!) */}
+              {/* Shift Manifest & Bounties */}
               <button
                 type="button"
                 tabIndex={-1}
                 aria-label="Open shift quests and rules [J]"
-                title="Shift Quests & Handbook [J]"
+                title="Shift Manifest & Field Guide [J]"
                 onClick={(e) => {
                   e.currentTarget.blur();
                   onOpenQuests();
                 }}
-                className="arcade-dock-tab rounded-r-[26px] md:rounded-r-[34px] pl-2.5 md:pl-3 pr-3 md:pr-4 pt-1.5 md:pt-2 pb-1 md:pb-1.5 flex flex-col items-center relative cursor-pointer"
+                className="tactical-btn rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 relative cursor-pointer"
               >
-                {(hasClaimableQuest || hud.ticketsCount > 0) && <RedAlertBadge />}
-                <svg
-                  viewBox="0 0 56 56"
-                  className="w-9 h-9 md:w-13 md:h-13 drop-shadow-sm"
+                {(hasClaimableQuest || hud.ticketsCount > 0) && <SignalDot />}
+                <ClipboardCheck
+                  className="w-3.5 h-3.5 text-[#9ba3ae]"
+                  strokeWidth={2.1}
                   aria-hidden="true"
-                >
-                  <g transform="rotate(-9 28 28)">
-                    <rect
-                      x="11"
-                      y="10"
-                      width="32"
-                      height="38"
-                      rx="5"
-                      fill="#a4662c"
-                      stroke="#140c04"
-                      strokeWidth="3.4"
-                    />
-                    <rect
-                      x="21"
-                      y="6"
-                      width="12"
-                      height="7"
-                      rx="3"
-                      fill="#b87a3d"
-                      stroke="#140c04"
-                      strokeWidth="2.8"
-                    />
-                    <rect
-                      x="15.5"
-                      y="15"
-                      width="23"
-                      height="28"
-                      rx="2"
-                      fill="#ffffff"
-                      stroke="#140c04"
-                      strokeWidth="2.2"
-                    />
-                    <path
-                      d="M19.5 22h15M19.5 29h15M19.5 36h11"
-                      stroke="#94a3b8"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                  <path
-                    d="M14 28l9 9 22-20"
-                    stroke="#140c04"
-                    strokeWidth="8.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                  <path
-                    d="M14 28l9 9 22-20"
-                    stroke="#ff1f2d"
-                    strokeWidth="4.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </svg>
-                <span className="-mt-1 md:-mt-1.5 arcade-stroke-sm text-white text-[11px] md:text-base uppercase leading-none">
-                  QUESTS
+                />
+                <span className="font-mono-num text-[11px] font-semibold uppercase tracking-wider text-[#f4f3ef]">
+                  Manifest
                 </span>
               </button>
+
+              {/* Multiplayer Dispatch Button */}
+              {onOpenMultiplayer && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  data-testid="hud-multiplayer-btn"
+                  aria-label="Open multiplayer dispatch [L]"
+                  title="Multiplayer Dispatch [L]"
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    onOpenMultiplayer();
+                  }}
+                  className="tactical-btn rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 relative cursor-pointer"
+                >
+                  {multiplayerRoom && (
+                    <span
+                      className="w-2 h-2 rounded-full bg-[#16a34a]"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <Users
+                    className={`w-3.5 h-3.5 ${
+                      multiplayerRoom ? 'text-[#4ade80]' : 'text-[#9ba3ae]'
+                    }`}
+                    strokeWidth={2.1}
+                    aria-hidden="true"
+                  />
+                  <span className="font-mono-num text-[11px] font-semibold uppercase tracking-wider text-[#f4f3ef]">
+                    {multiplayerRoom ? multiplayerRoom.roomId : 'Multi'}
+                  </span>
+                </button>
+              )}
             </div>
+
+            {/* Live Multiplayer Standings Card */}
+            {multiplayerRoom && multiplayerRoom.players.length > 0 && (
+              <div className="tactical-panel rounded-xl px-3 py-2 flex flex-col gap-1 min-w-[188px] max-w-[235px]">
+                <div className="flex items-center justify-between gap-2 font-mono-num text-[10px] uppercase tracking-wider text-[#9ba3ae]">
+                  <span>Room {multiplayerRoom.roomId}</span>
+                  <span>{multiplayerRoom.players.length}/6 Live</span>
+                </div>
+                {[...multiplayerRoom.players]
+                  .sort((a, b) =>
+                    b.score !== a.score
+                      ? b.score - a.score
+                      : b.deliveries - a.deliveries,
+                  )
+                  .slice(0, 4)
+                  .map((pl) => {
+                    const isMe = pl.id === localClientId;
+                    return (
+                      <div
+                        key={pl.id}
+                        className="flex items-center justify-between gap-2 font-mono-num text-[11px] leading-tight"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: pl.colorHex }}
+                            aria-hidden="true"
+                          />
+                          <span
+                            className={`truncate ${
+                              isMe
+                                ? 'font-bold text-white'
+                                : 'font-medium text-[#f4f3ef]/85'
+                            }`}
+                          >
+                            {pl.callsign}
+                          </span>
+                        </div>
+                        <span className="text-[#9ba3ae] shrink-0">
+                          <strong className="text-[#f4f3ef]">
+                            {pl.deliveries}
+                          </strong>{' '}
+                          · {pl.score}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
 
           {/* CENTER EPHEMERAL CALLOUTS ON DESKTOP (md+) */}
-          <div className="hidden md:flex flex-col items-center gap-1.5 pt-1">
+          <div className="hidden md:flex flex-col items-center gap-1.5">
             {hud.isWrongWay && (
-              <div className="arcade-pill-brown border-[#1d1205] rounded-full px-4 py-1.5 flex items-center gap-2.5 whitespace-nowrap">
-                <span className="arcade-stroke-sm text-[#ff4d5a] text-sm sm:text-base">
-                  WRONG WAY! KEEP RIGHT
+              <div className="tactical-panel rounded-xl px-3.5 py-1.5 flex items-center gap-3 border-[#dc2626]/65 whitespace-nowrap">
+                <span className="font-mono-num text-xs font-semibold uppercase tracking-wider text-[#f87171]">
+                  Wrong Lane · Keep Right
                 </span>
-                <span className="w-16 h-3 bg-black/50 rounded-full overflow-hidden border-2 border-[#1d1205]">
+                <span className="w-16 h-1.5 bg-white/15 rounded-full overflow-hidden">
                   <span
-                    className="block h-full arcade-bar-gold transition-all duration-75"
+                    className="block h-full bg-[#ff551e] transition-all duration-75"
                     style={{
-                      width: `${Math.round(Math.min(100, hud.wrongWayProgress * 100))}%`,
+                      width: `${Math.round(
+                        Math.min(100, hud.wrongWayProgress * 100),
+                      )}%`,
                     }}
                   />
                 </span>
@@ -886,120 +772,113 @@ export const GameHud: React.FC<GameHudProps> = ({
             {hud.bannerEvent && (
               <div
                 key={hud.bannerEvent.id}
-                className="arcade-boost-rim rounded-full p-1 whitespace-nowrap"
+                className="tactical-panel rounded-xl px-3.5 py-1.5 flex items-center gap-2.5 whitespace-nowrap"
               >
-                <div className="bg-[#493214] border-2 border-[#1d1205] rounded-full px-4 py-1 flex items-center gap-2">
-                  <span
-                    className={`arcade-stroke-sm text-sm sm:text-base ${
-                      hud.bannerEvent.tone === 'emerald'
-                        ? 'text-[#6bf25c]'
-                        : hud.bannerEvent.tone === 'amber'
-                          ? 'text-[#ffee1f]'
-                          : 'text-[#ff5c6a]'
-                    }`}
-                  >
-                    {hud.bannerEvent.label}
-                  </span>
-                  <span className="arcade-stroke-sm text-white text-xs sm:text-sm">
-                    {hud.bannerEvent.detail}
-                  </span>
-                </div>
+                <span
+                  className={`font-display text-xs sm:text-sm font-semibold ${
+                    hud.bannerEvent.tone === 'emerald'
+                      ? 'text-[#4ade80]'
+                      : hud.bannerEvent.tone === 'amber'
+                        ? 'text-[#facc15]'
+                        : 'text-[#fb7185]'
+                  }`}
+                >
+                  {hud.bannerEvent.label}
+                </span>
+                <span className="font-mono-num text-xs text-[#f4f3ef]/85">
+                  {hud.bannerEvent.detail}
+                </span>
               </div>
             )}
           </div>
 
-          {/* TOP-RIGHT: Reference 2 Golden-Rimmed BOOST Capsule (md+) + Outlined White Clock Timer */}
-          <div className="flex flex-col items-end md:items-center shrink-0">
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label="Activate turbo boost [Shift]"
-              title="Turbo Boost [Shift]"
-              onClick={(e) => {
-                e.currentTarget.blur();
-                touchControls.boostPulse = true;
-                triggerWindowKeyPulse('ShiftLeft');
-              }}
-              className="hidden md:block pointer-events-auto arcade-boost-rim rounded-full p-1 cursor-pointer"
-            >
-              <div
-                className="bg-[#493214] border-[2.5px] border-[#1d1205] rounded-full px-5 py-1 relative overflow-hidden flex items-center gap-2"
-                role="progressbar"
-                aria-label="Turbo boost charge"
-                aria-valuenow={boostPct}
-                aria-valuemin={0}
-                aria-valuemax={100}
+          {/* TOP-RIGHT: Boost/Fever Telemetry + Shift Clock + Score/Wave/Citations */}
+          <div className="flex flex-col items-end shrink-0 gap-1.5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Desktop Boost & Multiplier Meter */}
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="Activate turbo boost [Shift]"
+                title="Turbo Boost [Shift]"
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  touchControls.boostPulse = true;
+                  triggerWindowKeyPulse('ShiftLeft');
+                }}
+                className="hidden md:flex pointer-events-auto tactical-btn rounded-xl h-10 px-3.5 relative overflow-hidden items-center gap-2.5 cursor-pointer"
               >
-                {!hud.boostReady && !hud.isBoosting && (
-                  <div
-                    className="absolute left-0 top-0 bottom-0 bg-amber-400/25 transition-all duration-100"
-                    style={{ width: `${boostPct}%` }}
-                  />
-                )}
-                <span className="relative z-10 arcade-stroke-sm text-white text-xl leading-none">
-                  x{streakMultiplier}
-                </span>
-                <span
-                  className={`relative z-10 arcade-stroke text-2xl leading-none ${
-                    hud.isFever
-                      ? 'text-[#ff70a6]'
-                      : hud.isBoosting
-                        ? 'text-[#6bf25c]'
-                        : hud.boostReady
-                          ? 'text-[#ffee1f]'
-                          : 'text-amber-200/80'
-                  }`}
+                <div
+                  role="progressbar"
+                  aria-label="Turbo boost charge"
+                  aria-valuenow={boostPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="flex items-center gap-2"
                 >
-                  {hud.isFever ? 'FEVER!' : 'BOOST'}
+                  <span className="font-mono-num text-xs font-semibold text-[#9ba3ae]">
+                    x{streakMultiplier}
+                  </span>
+                  <span
+                    className={`font-display text-sm font-bold tracking-wide uppercase ${
+                      hud.isFever
+                        ? 'text-[#ff551e]'
+                        : hud.isBoosting
+                          ? 'text-[#4ade80]'
+                          : hud.boostReady
+                            ? 'text-[#facc15]'
+                            : 'text-[#f4f3ef]/75'
+                    }`}
+                  >
+                    {hud.isFever ? 'Fever' : 'Boost'}
+                  </span>
+                </div>
+                <span className="absolute left-0 right-0 bottom-0 h-[3px] bg-white/10">
+                  <span
+                    className={`block h-full transition-all duration-100 ${
+                      hud.isFever || hud.boostReady
+                        ? 'bg-[#ff551e]'
+                        : hud.isBoosting
+                          ? 'bg-[#4ade80]'
+                          : 'bg-[#eab308]'
+                    }`}
+                    style={{
+                      width: `${hud.boostReady || hud.isBoosting ? 100 : boostPct}%`,
+                    }}
+                  />
+                </span>
+              </button>
+
+              {/* Shift Countdown Clock */}
+              <div className="tactical-panel rounded-xl h-9 md:h-10 px-2.5 md:px-3.5 flex items-center gap-1.5 md:gap-2">
+                <Clock
+                  className={`w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 ${
+                    isLowTime ? 'text-[#ff551e]' : 'text-[#9ba3ae]'
+                  }`}
+                  strokeWidth={2.1}
+                  aria-hidden="true"
+                />
+                <span
+                  className={`font-mono-num text-sm sm:text-base md:text-lg font-semibold leading-none ${
+                    isLowTime ? 'text-[#ff551e]' : 'text-[#f4f3ef]'
+                  }`}
+                  aria-label={`${hud.timeRemainingSec} seconds left`}
+                >
+                  {formatClock(hud.timeRemainingSec)}
                 </span>
               </div>
-            </button>
-
-            {/* Reference 2: Outlined White Clock Icon + MM:SS Timer */}
-            <div className="flex items-center gap-1 md:gap-1.5 md:mt-1.5">
-              <svg
-                viewBox="0 0 28 28"
-                className="w-5 h-5 md:w-7 md:h-7 shrink-0 drop-shadow-sm"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="14"
-                  cy="14"
-                  r="11"
-                  fill="#ffffff"
-                  stroke="#1d1205"
-                  strokeWidth="3.2"
-                />
-                <path
-                  d="M14 8v6.2l4 3"
-                  stroke="#1d1205"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-              <span
-                className={`arcade-stroke text-base sm:text-xl md:text-2xl leading-none ${
-                  isLowTime ? 'text-[#ff5964]' : 'text-white'
-                }`}
-                aria-label={`${hud.timeRemainingSec} seconds left`}
-              >
-                {formatClock(hud.timeRemainingSec)}
-              </span>
             </div>
 
-            <div className="mt-0.5 md:mt-1 arcade-pill-brown rounded-full px-2.5 md:px-3 py-0.5 flex items-center gap-1.5 md:gap-2">
-              <span className="arcade-stroke-sm text-[#ffee1f] text-[10px] md:text-xs leading-none">
+            {/* Tabular Score · Wave · Citation Readout */}
+            <div className="tactical-panel rounded-lg px-2.5 py-1 flex items-center gap-1.5 font-mono-num text-[10px] md:text-[11px] leading-none">
+              <span className="font-semibold text-[#f4f3ef]">
                 {hud.score.toLocaleString()} PTS
               </span>
               {hud.greenWaveTimer > 0 && (
-                <span className="arcade-stroke-sm text-[#6bf25c] text-[10px] md:text-xs leading-none">
-                  · WAVE
-                </span>
+                <span className="font-semibold text-[#4ade80]">· WAVE</span>
               )}
               {hud.ticketsCount > 0 && (
-                <span className="arcade-stroke-sm text-[#ff6b78] text-[10px] md:text-xs leading-none">
+                <span className="font-semibold text-[#f87171]">
                   · {hud.ticketsCount} TKT
                 </span>
               )}
@@ -1008,7 +887,7 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       </div>
 
-      {/* CENTER STORYBOOK 3 - 2 - 1 - GO! COUNTDOWN & ROCKET START OVERLAY */}
+      {/* CENTER TACTICAL 3 - 2 - 1 - GO LAUNCH MODULE */}
       {hud.countdownStage !== null && hud.countdownStage !== undefined && (
         <div
           key={`cd-${hud.countdownStage}`}
@@ -1020,70 +899,63 @@ export const GameHud: React.FC<GameHudProps> = ({
           }`}
         >
           <div
-            className={`arcade-boost-rim rounded-[2rem] p-1 md:p-1.5 shadow-xl transition-transform duration-150 ${
-              hud.countdownStage === 0 ? 'scale-100 md:scale-105' : 'scale-100'
+            className={`tactical-panel rounded-2xl px-8 py-4 sm:px-11 sm:py-5 min-w-[180px] sm:min-w-[240px] flex flex-col items-center border ${
+              hud.countdownStage === 0
+                ? 'border-[#16a34a]/80'
+                : hud.rocketStartStatus === 'primed'
+                  ? 'border-[#ff551e]/80'
+                  : 'border-white/15'
             }`}
           >
-            <div
-              className={`${
+            <span className="font-mono-num text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.16em] text-[#9ba3ae] mb-1">
+              {hud.countdownStage === 0
+                ? hud.rocketStartStatus === 'launched'
+                  ? 'Rocket Launch Engaged'
+                  : 'Shift Active'
+                : `Stage ${String(hud.level).padStart(2, '0')} · ${hud.districtName}`}
+            </span>
+
+            <span
+              className={`font-display font-bold tracking-tight leading-none ${
                 hud.countdownStage === 0
-                  ? 'bg-[#2ea836] px-6 py-1.5 sm:px-10 sm:py-3.5 min-w-[140px] sm:min-w-[220px]'
-                  : `${
-                      hud.rocketStartStatus === 'primed'
-                        ? 'bg-[#f59e0b]'
-                        : 'bg-[#493214]'
-                    } px-7 py-2.5 sm:px-10 sm:py-3.5 min-w-[168px] sm:min-w-[220px]`
-              } border-[3.5px] border-[#140c04] rounded-[1.65rem] flex flex-col items-center`}
+                  ? 'text-[#4ade80] text-4xl sm:text-6xl'
+                  : hud.countdownStage === 1
+                    ? 'text-[#ff551e] text-5xl sm:text-6xl'
+                    : 'text-[#f4f3ef] text-5xl sm:text-6xl'
+              }`}
             >
-              <span className="arcade-stroke-sm text-[#ffee1f] text-[10px] sm:text-xs uppercase tracking-wider leading-none mb-1">
-                {hud.countdownStage === 0
-                  ? hud.rocketStartStatus === 'launched'
-                    ? 'TURBO ROCKET LAUNCH!'
-                    : 'SHIFT STARTED!'
-                  : `STAGE ${hud.level} · ${hud.districtName}`}
-              </span>
-              <span
-                className={`arcade-stroke-lg leading-none ${
-                  hud.countdownStage === 0
-                    ? 'text-white text-4xl sm:text-7xl'
-                    : hud.countdownStage === 1
-                      ? 'text-[#6bf25c] text-6xl sm:text-7xl'
-                      : 'text-[#ffee1f] text-6xl sm:text-7xl'
-                }`}
-              >
-                {hud.countdownStage === 0 ? 'GO!' : hud.countdownStage}
-              </span>
-            </div>
+              {hud.countdownStage === 0 ? 'GO' : hud.countdownStage}
+            </span>
           </div>
 
           {hud.countdownStage > 0 && (
-            <div className="mt-2.5 arcade-pill-brown rounded-full px-4 py-1 border-2 border-[#140c04]">
+            <div className="mt-2.5 tactical-panel rounded-lg px-3.5 py-1.5">
               <span
-                className={`arcade-stroke-sm text-xs sm:text-sm ${
+                className={`font-mono-num text-[11px] sm:text-xs font-medium uppercase tracking-wider ${
                   hud.rocketStartStatus === 'primed'
-                    ? 'text-[#6bf25c]'
+                    ? 'text-[#4ade80]'
                     : hud.rocketStartStatus === 'sputter'
-                      ? 'text-[#ff6b78]'
+                      ? 'text-[#f87171]'
                       : hud.countdownStage === 1
-                        ? 'text-[#ffee1f]'
-                        : 'text-white'
+                        ? 'text-[#ff551e]'
+                        : 'text-[#f4f3ef]'
                 }`}
               >
                 {hud.rocketStartStatus === 'primed' ? (
-                  'ROCKET START CHARGED! KEEP HOLDING!'
+                  'Launch Primed · Hold Throttle'
                 ) : hud.rocketStartStatus === 'sputter' ? (
-                  'TOO EARLY! RELEASE & HOLD ON 1!'
+                  'Early Input · Release & Hold on 1'
                 ) : hud.countdownStage === 1 ? (
                   <>
                     <span className="md:hidden">
-                      HOLD SCREEN NOW FOR ROCKET START!
+                      Hold Screen Now for Rocket Start
                     </span>
                     <span className="hidden md:inline">
-                      HOLD GAS [W / ▲] NOW FOR ROCKET START!
+                      Hold Drive [W / ↑] Now for Rocket Start
                     </span>
                   </>
                 ) : (
-                  'SPOT YOUR ROUTE · READY ON 1!'
+                  'Scan Route · Engage Throttle on 1'
                 )}
               </span>
             </div>
@@ -1091,13 +963,14 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       )}
 
-      {/* BOTTOM PERIMETER: Desktop Action Trio (md+) + Mobile Dual-Thumb Arcade Deck (<md) + Responsive GPS Radar */}
+      {/* BOTTOM PERIMETER: Desktop Tactical Console (md+) + Mobile Dual-Thumb Deck (<md) + GPS Radar */}
       <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-2 md:gap-3">
-        {/* Left spacer on desktop so the Reference 3 action trio sits centered across the bottom! */}
+        {/* Left spacer on desktop to center the primary dispatch console */}
         <div className="hidden lg:block w-[122px] shrink-0" aria-hidden="true" />
 
-        {/* DESKTOP BOTTOM ACTION BAR (md+) */}
-        <div className="hidden md:flex pointer-events-auto items-end gap-5 mx-auto">
+        {/* DESKTOP BOTTOM CONSOLE (md+) */}
+        <div className="hidden md:flex pointer-events-auto items-end gap-3 mx-auto">
+          {/* 45s Autonomous Demo Reel Toggle */}
           <button
             type="button"
             tabIndex={-1}
@@ -1109,57 +982,30 @@ export const GameHud: React.FC<GameHudProps> = ({
             }
             title={
               hud.demoActive
-                ? 'Click to Stop Demo Reel [T / Esc]'
-                : '45s Hands-Free Gameplay Demo Reel [T]'
+                ? 'Stop Demo Reel [T / Esc]'
+                : '45s Autonomous Demo Reel [T]'
             }
             onClick={(e) => {
               e.currentTarget.blur();
               touchControls.demoTogglePulse = true;
             }}
-            className={`arcade-circle-btn w-15 h-15 rounded-full flex items-center justify-center shrink-0 cursor-pointer relative ${
-              hud.demoActive ? 'ring-3 ring-[#6bf25c]' : ''
+            className={`tactical-btn h-13 px-3.5 rounded-xl flex flex-col items-center justify-center gap-0.5 shrink-0 cursor-pointer ${
+              hud.demoActive ? 'ring-2 ring-[#16a34a]' : ''
             }`}
           >
-            <svg
-              viewBox="0 0 36 36"
-              className="w-10 h-10"
-              fill="none"
+            <Timer
+              className={`w-4 h-4 ${
+                hud.demoActive ? 'text-[#4ade80]' : 'text-[#9ba3ae]'
+              }`}
+              strokeWidth={2}
               aria-hidden="true"
-            >
-              {/* Top Stopwatch Plunger & Side Clicker */}
-              <path
-                d="M14 4h8M18 4v3.5M26.5 8.5l2.2-2.2"
-                stroke="#140c04"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M14.5 4h7"
-                stroke="#ffe524"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-              {/* Stopwatch Body */}
-              <circle
-                cx="18"
-                cy="20"
-                r="12"
-                fill={hud.demoActive ? '#2ea836' : '#ffe524'}
-                stroke="#140c04"
-                strokeWidth="2.8"
-              />
-              <circle
-                cx="18"
-                cy="20"
-                r="9.2"
-                fill={hud.demoActive ? '#1f7a26' : '#493214'}
-              />
-            </svg>
-            <span className="absolute inset-0 pt-2 flex items-center justify-center arcade-stroke-sm text-white text-xs leading-none tabular-nums">
+            />
+            <span className="font-mono-num text-[11px] font-semibold text-[#f4f3ef] leading-none">
               {hud.demoActive ? `${hud.demoRemainingSec ?? 45}s` : '45s'}
             </span>
           </button>
 
+          {/* Audio Mute Toggle */}
           <button
             type="button"
             tabIndex={-1}
@@ -1169,72 +1015,44 @@ export const GameHud: React.FC<GameHudProps> = ({
               e.currentTarget.blur();
               onToggleMute();
             }}
-            className="arcade-circle-btn w-15 h-15 rounded-full flex items-center justify-center shrink-0 cursor-pointer"
+            className="tactical-btn w-13 h-13 rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
           >
             {muted ? (
-              <svg viewBox="0 0 28 28" className="w-8 h-8" fill="none">
-                <path
-                  d="M13 6L7.5 10.5H4v7h3.5L13 22V6z"
-                  fill="#ffffff"
-                  stroke="#140c04"
-                  strokeWidth="2.6"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M24 10l-6 8M18 10l6 8"
-                  stroke="#ff2430"
-                  strokeWidth="3.2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <VolumeX
+                className="w-5 h-5 text-[#ff551e]"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
             ) : (
-              <svg viewBox="0 0 28 28" className="w-8 h-8" fill="none">
-                <path
-                  d="M13 6L7.5 10.5H4v7h3.5L13 22V6z"
-                  fill="#ffffff"
-                  stroke="#140c04"
-                  strokeWidth="2.6"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M18 10a5.5 5.5 0 010 8M21.5 7a9.5 9.5 0 010 14"
-                  stroke="#ffffff"
-                  strokeWidth="2.8"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Volume2
+                className="w-5 h-5 text-[#f4f3ef]"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
             )}
           </button>
 
+          {/* Courtesy Bell */}
           <button
             type="button"
             tabIndex={-1}
-            aria-label="Honk musical horn [Q]"
-            title="Musical Horn [Q] — Calms Scooters & Hurries Ducklings!"
+            aria-label="Ring courtesy bell [Q]"
+            title="Courtesy Bell [Q] — Calms Scooters & Clears Crossings"
             onClick={(e) => {
               e.currentTarget.blur();
               touchControls.hornPulse = true;
               triggerWindowKeyPulse('KeyQ');
             }}
-            className="arcade-circle-btn w-14 h-14 rounded-full flex items-center justify-center shrink-0 cursor-pointer"
+            className="tactical-btn w-13 h-13 rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
           >
-            <svg viewBox="0 0 28 28" className="w-7 h-7" fill="none" aria-hidden="true">
-              <path
-                d="M6 12h4l8-5v14l-8-5H6a2 2 0 01-2-2v0a2 2 0 012-2z"
-                fill="#ffe524"
-                stroke="#140c04"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M21 10a5 5 0 010 8"
-                stroke="#ffffff"
-                strokeWidth="2.6"
-                strokeLinecap="round"
-              />
-            </svg>
+            <Bell
+              className="w-5 h-5 text-[#f4f3ef]"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
           </button>
 
+          {/* Central Curbside Dispatch Console */}
           <button
             type="button"
             tabIndex={-1}
@@ -1245,224 +1063,126 @@ export const GameHud: React.FC<GameHudProps> = ({
               triggerWindowKeyPulse('Space');
             }}
             className={`${
-              hud.canExpressToss ? 'arcade-btn-green' : 'arcade-btn-gold'
-            } rounded-2xl px-5 pt-2.5 pb-2.5 min-w-[356px] flex flex-col gap-1.5 cursor-pointer relative`}
+              hud.canBullseyeToss
+                ? 'btn-signal'
+                : hud.canExpressToss
+                  ? 'btn-pine'
+                  : 'tactical-btn'
+            } rounded-xl px-4 py-2.5 min-w-[368px] flex flex-col gap-1.5 cursor-pointer`}
           >
-            <div
-              className="absolute -top-6 left-1/2 -translate-x-1/2 pointer-events-none flex items-center justify-center"
-              aria-hidden="true"
-            >
-              <svg viewBox="0 0 56 56" className="w-12 h-12 drop-shadow-sm">
-                <g stroke="#fff59d" strokeWidth="3" strokeLinecap="round" opacity="0.85">
-                  <line x1="28" y1="3" x2="28" y2="9" />
-                  <line x1="11" y1="10" x2="15" y2="14" />
-                  <line x1="45" y1="10" x2="41" y2="14" />
-                  <line x1="5" y1="24" x2="11" y2="24" />
-                  <line x1="51" y1="24" x2="45" y2="24" />
-                </g>
-                <ellipse cx="28" cy="46" rx="11" ry="3.5" fill="rgba(20,12,4,0.28)" />
-                <path
-                  d="M28 11L13 18.5v16L28 42l15-7.5v-16L28 11z"
-                  fill={
-                    hud.nextParcelKind === ParcelKind.HotExpress
-                      ? '#ef233c'
-                      : hud.nextParcelKind === ParcelKind.Large
-                        ? '#ff9f1c'
-                        : hud.nextParcelKind === ParcelKind.Fragile
-                          ? '#ff75a0'
-                          : '#fff3b0'
-                  }
-                  stroke="#140c04"
-                  strokeWidth="3.2"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M13 18.5L28 26l15-7.5M28 26v16"
-                  stroke="#140c04"
-                  strokeWidth="2.6"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20.5 14.8l15 7.5"
-                  stroke="#ffe524"
-                  strokeWidth="3.2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-
             <div className="flex items-center justify-between gap-3 w-full">
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <CustomerPortraitSvg appearance={hud.nextStopAppearance} />
                 <div className="text-left min-w-0">
-                  <div className="font-display text-base text-[#2b1b08] leading-none truncate">
+                  <div className="font-display text-sm sm:text-[15px] font-semibold text-white leading-tight truncate">
                     #{hud.nextStopIndex} {hud.nextCustomerName}
-                    {hud.nextVipRole !== 'none' ? ' ★' : ''}
+                    {hud.nextVipRole !== 'none' ? ' · VIP' : ''}
                   </div>
-                  <div className="text-[11px] font-extrabold text-[#5c3809] truncate mt-0.5 max-w-[175px]">
+                  <div className="font-mono-num text-[11px] text-white/80 truncate mt-0.5 max-w-[195px]">
                     {hud.nextParcelKind === ParcelKind.HotExpress
-                      ? `HOT (${Math.round(hud.thermalPct * 100)}%) · ${hud.nextParcelLabel}`
+                      ? `THERMAL ${Math.round(hud.thermalPct * 100)}% · ${hud.nextParcelLabel}`
                       : hud.nextParcelLabel}
                   </div>
                 </div>
               </div>
 
               {hud.deliveredCount < hud.totalStops && (
-                <div className="flex items-center gap-1.5 bg-[#493214] border-[2.5px] border-[#140c04] rounded-xl px-2.5 py-1 shrink-0">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="w-4 h-4 transition-transform duration-100"
-                    style={{ transform: `rotate(${Math.round(compassDeg)}deg)` }}
+                <div className="flex items-center gap-1.5 bg-black/30 border border-white/15 rounded-lg px-2.5 py-1 shrink-0">
+                  <Navigation
+                    className="w-3.5 h-3.5 text-[#ff551e] transition-transform duration-100"
+                    style={{
+                      transform: `rotate(${Math.round(compassDeg)}deg)`,
+                    }}
+                    strokeWidth={2.3}
                     aria-hidden="true"
-                  >
-                    <path
-                      d="M12 2.5l6.5 16.5L12 15.2 5.5 19 12 2.5z"
-                      fill="#ffee1f"
-                      stroke="#140c04"
-                      strokeWidth="2.2"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span className="arcade-stroke-sm text-white text-sm leading-none">
+                  />
+                  <span className="font-mono-num text-xs font-semibold text-white leading-none">
                     {hud.distanceToStopMeters}m
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-2 pt-0.5">
-              <svg
-                viewBox="0 0 28 28"
-                className="w-6 h-6 shrink-0"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="14"
-                  cy="14"
-                  r="11.5"
-                  fill="#ffe524"
-                  stroke="#140c04"
-                  strokeWidth="2.8"
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/12 w-full">
+              <div className="flex items-center gap-1.5 font-mono-num text-[11px] uppercase tracking-wider text-white/90">
+                <Package
+                  className="w-3.5 h-3.5 shrink-0 opacity-90"
+                  strokeWidth={2}
+                  aria-hidden="true"
                 />
-                <circle cx="14" cy="14" r="8" fill="#df8f0d" />
-                <path
-                  d="M14 8v12M16.5 10.8c0-1.1-1.1-1.8-2.5-1.8s-2.5.7-2.5 1.7c0 2.4 5 1.5 5 4.1 0 1.2-1.1 1.9-2.5 1.9s-2.5-.7-2.5-1.8"
-                  stroke="#ffe629"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
+                <span>
+                  {hud.needsBrakeForLarge
+                    ? 'Brake [S/↓] to Unload Crate'
+                    : hud.canBullseyeToss
+                      ? 'Bullseye Lock [Space]'
+                      : hud.canExpressToss
+                        ? 'Drop Zone Active [Space]'
+                        : hud.nextParcelKind === ParcelKind.Large
+                          ? 'Large Crate · Stop Required'
+                          : hud.nextParcelKind === ParcelKind.HotExpress
+                            ? 'Hot Express · Priority'
+                            : hud.nextParcelKind === ParcelKind.Fragile
+                              ? hud.fragileIntact
+                                ? 'Fragile · Intact'
+                                : 'Fragile · Bumped'
+                              : 'Curbside Drop [Space]'}
+                </span>
+              </div>
 
-              <span className="arcade-stroke-sm text-white text-lg leading-none whitespace-nowrap">
-                {hud.needsBrakeForLarge
-                  ? `BRAKE [S/↓] · +${activeRewardPoints}`
-                  : hud.canBullseyeToss
-                    ? `BULLSEYE [SPACE]! · +${activeRewardPoints + 85}`
-                    : hud.canExpressToss
-                      ? `DELIVER [SPACE] · +${activeRewardPoints}`
-                      : hud.nextParcelKind === ParcelKind.Large
-                        ? `LARGE CRATE · +${activeRewardPoints}`
-                        : hud.nextParcelKind === ParcelKind.HotExpress
-                          ? `HOT EXPRESS · +${activeRewardPoints}`
-                          : hud.nextParcelKind === ParcelKind.Fragile
-                            ? hud.fragileIntact
-                              ? `FRAGILE · +${activeRewardPoints}`
-                              : `BUMPED · +${activeRewardPoints}`
-                            : `TOSS [SPACE] · +${activeRewardPoints}`}
+              <span className="font-mono-num text-xs font-semibold text-white shrink-0">
+                +
+                {hud.canBullseyeToss
+                  ? activeRewardPoints + 85
+                  : activeRewardPoints}
               </span>
             </div>
           </button>
 
+          {/* Fleet Depot Button */}
           <button
             type="button"
             tabIndex={-1}
-            aria-label="Open garage shop and lucky spin [G]"
-            title="Garage Fleet, Toppers & Lucky Spin [G]"
+            aria-label="Open fleet depot and dispatch wheel [G]"
+            title="Courier Depot & Dispatch Wheel [G]"
             onClick={(e) => {
               e.currentTarget.blur();
               onOpenShop();
             }}
-            className="flex flex-col items-center pb-1.5 cursor-pointer transition-transform hover:-translate-y-0.5 active:translate-y-0.5 shrink-0 relative"
+            className="tactical-btn h-13 px-3.5 rounded-xl flex flex-col items-center justify-center gap-0.5 shrink-0 cursor-pointer relative"
           >
-            {hasFreeSpin && <RedAlertBadge />}
-            <svg
-              viewBox="0 0 60 52"
-              className="w-15 h-13 drop-shadow-sm"
+            {hasFreeSpin && <SignalDot />}
+            <Warehouse
+              className="w-4 h-4 text-[#f4f3ef]"
+              strokeWidth={2}
               aria-hidden="true"
-            >
-              <rect
-                x="9"
-                y="22"
-                width="42"
-                height="26"
-                rx="3"
-                fill="#f8fafc"
-                stroke="#140c04"
-                strokeWidth="3.4"
-              />
-              <rect
-                x="14"
-                y="27"
-                width="15"
-                height="13"
-                rx="2"
-                fill="#29b6f6"
-                stroke="#140c04"
-                strokeWidth="2.6"
-              />
-              <rect
-                x="34"
-                y="27"
-                width="11"
-                height="21"
-                rx="2"
-                fill="#1e88e5"
-                stroke="#140c04"
-                strokeWidth="2.6"
-              />
-              <path
-                d="M6 21L11 7h38l5 14a6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0z"
-                fill="#ffffff"
-                stroke="#140c04"
-                strokeWidth="3.4"
-                strokeLinejoin="round"
-              />
-              <path d="M6 21L11 7h9l-2 14a6 6 0 01-12 0z" fill="#ff3b24" />
-              <path d="M30 21l-1-14h10l3 14a6 6 0 01-12 0z" fill="#ff3b24" />
-              <path
-                d="M6 21L11 7h38l5 14a6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0z"
-                fill="none"
-                stroke="#140c04"
-                strokeWidth="3.4"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="-mt-2.5 arcade-stroke-sm text-white text-base uppercase leading-tight">
-              SHOP
+            />
+            <span className="font-mono-num text-[10px] font-semibold uppercase tracking-wider text-[#f4f3ef] leading-none">
+              Depot
             </span>
           </button>
         </div>
 
-        {/* MOBILE DUAL-THUMB ARCADE TOUCH DECK (< md): Hidden during 3-2-1, appears cleanly on GO! */}
+        {/* MOBILE DUAL-THUMB TACTICAL TOUCH DECK (< md) */}
         <div
           className={`${
             isPreGoCountdown ? 'hidden' : 'flex md:hidden'
           } pointer-events-auto flex-col gap-1.5 w-full touch-none`}
         >
-          {/* Compact Bottom-Tucked Status Chip (keeps vertical center & forward 3D road 100% unobstructed!) */}
+          {/* Compact Status Callout */}
           {(hud.isWrongWay || (showMobileBanner && hud.bannerEvent)) && (
             <div className="pointer-events-none self-center max-w-[92%]">
               {hud.isWrongWay ? (
-                <div className="arcade-pill-brown border-[#1d1205] rounded-full px-2.5 py-0.5 flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="arcade-stroke-sm text-[#ff4d5a] text-[11px] leading-none">
-                    WRONG WAY · KEEP RIGHT
+                <div className="tactical-panel rounded-lg px-2.5 py-1 flex items-center gap-2 border-[#dc2626]/65 whitespace-nowrap">
+                  <span className="font-mono-num text-[10px] font-semibold uppercase tracking-wider text-[#f87171] leading-none">
+                    Wrong Lane · Keep Right
                   </span>
-                  <span className="w-10 h-2 bg-black/50 rounded-full overflow-hidden border border-[#1d1205]">
+                  <span className="w-10 h-1.5 bg-white/15 rounded-full overflow-hidden">
                     <span
-                      className="block h-full arcade-bar-gold transition-all duration-75"
+                      className="block h-full bg-[#ff551e] transition-all duration-75"
                       style={{
-                        width: `${Math.round(Math.min(100, hud.wrongWayProgress * 100))}%`,
+                        width: `${Math.round(
+                          Math.min(100, hud.wrongWayProgress * 100),
+                        )}%`,
                       }}
                     />
                   </span>
@@ -1470,15 +1190,15 @@ export const GameHud: React.FC<GameHudProps> = ({
               ) : hud.bannerEvent ? (
                 <div
                   key={hud.bannerEvent.id}
-                  className="bg-[#493214]/95 border-2 border-[#1d1205] rounded-full px-2.5 py-0.5 flex items-center gap-1.5 truncate shadow-sm"
+                  className="tactical-panel rounded-lg px-2.5 py-1 flex items-center gap-1.5 truncate"
                 >
                   <span
-                    className={`arcade-stroke-sm text-[11px] leading-none shrink-0 ${
+                    className={`font-display text-[11px] font-semibold leading-none shrink-0 ${
                       hud.bannerEvent.tone === 'emerald'
-                        ? 'text-[#6bf25c]'
+                        ? 'text-[#4ade80]'
                         : hud.bannerEvent.tone === 'amber'
-                          ? 'text-[#ffee1f]'
-                          : 'text-[#ff5c6a]'
+                          ? 'text-[#facc15]'
+                          : 'text-[#fb7185]'
                     }`}
                   >
                     {hud.bannerEvent.label}
@@ -1488,7 +1208,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             </div>
           )}
 
-          {/* Upper Compact Strip: [Mute] + [Horn] + [Tap-to-Deliver Active Stop Card] + [Shop Icon] */}
+          {/* Upper Mobile Strip: [Mute] + [Bell] + [Tap-to-Deliver Console] + [Depot] */}
           <div className="flex items-center gap-1.5 w-full">
             <button
               type="button"
@@ -1498,68 +1218,30 @@ export const GameHud: React.FC<GameHudProps> = ({
                 e.currentTarget.blur();
                 onToggleMute();
               }}
-              className="arcade-circle-btn w-11 h-11 rounded-full flex items-center justify-center shrink-0 cursor-pointer"
+              className="tactical-btn w-11 h-11 rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
             >
               {muted ? (
-                <svg viewBox="0 0 28 28" className="w-6 h-6" fill="none">
-                  <path
-                    d="M13 6L7.5 10.5H4v7h3.5L13 22V6z"
-                    fill="#ffffff"
-                    stroke="#140c04"
-                    strokeWidth="2.6"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M24 10l-6 8M18 10l6 8"
-                    stroke="#ff2430"
-                    strokeWidth="3.2"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <VolumeX className="w-4 h-4 text-[#ff551e]" strokeWidth={2} />
               ) : (
-                <svg viewBox="0 0 28 28" className="w-6 h-6" fill="none">
-                  <path
-                    d="M13 6L7.5 10.5H4v7h3.5L13 22V6z"
-                    fill="#ffffff"
-                    stroke="#140c04"
-                    strokeWidth="2.6"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M18 10a5.5 5.5 0 010 8M21.5 7a9.5 9.5 0 010 14"
-                    stroke="#ffffff"
-                    strokeWidth="2.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <Volume2 className="w-4 h-4 text-[#f4f3ef]" strokeWidth={2} />
               )}
             </button>
 
             <button
               type="button"
               tabIndex={-1}
-              aria-label="Honk musical horn"
+              aria-label="Ring courtesy bell"
               onPointerDown={(e) => {
                 e.preventDefault();
                 touchControls.hornPulse = true;
               }}
-              className="arcade-circle-btn w-11 h-11 rounded-full flex items-center justify-center shrink-0 cursor-pointer"
+              className="tactical-btn w-11 h-11 rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
             >
-              <svg viewBox="0 0 28 28" className="w-6 h-6" fill="none" aria-hidden="true">
-                <path
-                  d="M6 12h4l8-5v14l-8-5H6a2 2 0 01-2-2v0a2 2 0 012-2z"
-                  fill="#ffe524"
-                  stroke="#140c04"
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M21 10a5 5 0 010 8"
-                  stroke="#ffffff"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Bell
+                className="w-4 h-4 text-[#f4f3ef]"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
             </button>
 
             <button
@@ -1571,23 +1253,27 @@ export const GameHud: React.FC<GameHudProps> = ({
                 touchControls.deliverPulse = true;
               }}
               className={`${
-                hud.canExpressToss ? 'arcade-btn-green' : 'arcade-btn-gold'
-              } flex-1 min-w-0 rounded-2xl px-2.5 py-1.5 flex items-center justify-between gap-2 cursor-pointer`}
+                hud.canBullseyeToss
+                  ? 'btn-signal'
+                  : hud.canExpressToss
+                    ? 'btn-pine'
+                    : 'tactical-btn'
+              } flex-1 min-w-0 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2 cursor-pointer`}
             >
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <CustomerPortraitSvg appearance={hud.nextStopAppearance} />
                 <div className="text-left min-w-0">
-                  <div className="font-display text-xs text-[#2b1b08] leading-tight truncate">
+                  <div className="font-display text-xs font-semibold text-white leading-tight truncate">
                     #{hud.nextStopIndex} {hud.nextCustomerName}
-                    {hud.nextVipRole !== 'none' ? ' ★' : ''}
+                    {hud.nextVipRole !== 'none' ? ' · VIP' : ''}
                   </div>
-                  <div className="arcade-stroke-sm text-white text-[11px] leading-tight truncate">
+                  <div className="font-mono-num text-[10px] text-white/85 leading-tight truncate mt-0.5">
                     {hud.needsBrakeForLarge
                       ? `HOLD BRAKE · +${activeRewardPoints}`
                       : hud.canBullseyeToss
-                        ? `BULLSEYE TAP! +${activeRewardPoints + 85}`
+                        ? `BULLSEYE TAP · +${activeRewardPoints + 85}`
                         : hud.canExpressToss
-                          ? `TAP TO DELIVER! +${activeRewardPoints}`
+                          ? `TAP TO DROP · +${activeRewardPoints}`
                           : `${
                               hud.nextParcelKind === ParcelKind.Large
                                 ? 'CRATE'
@@ -1604,22 +1290,16 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
 
               {hud.deliveredCount < hud.totalStops && (
-                <div className="flex items-center gap-1 bg-[#493214] border-2 border-[#140c04] rounded-xl px-2 py-1 shrink-0">
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="w-3.5 h-3.5 transition-transform duration-100"
-                    style={{ transform: `rotate(${Math.round(compassDeg)}deg)` }}
+                <div className="flex items-center gap-1 bg-black/30 border border-white/15 rounded-lg px-2 py-1 shrink-0">
+                  <Navigation
+                    className="w-3 h-3 text-[#ff551e] transition-transform duration-100"
+                    style={{
+                      transform: `rotate(${Math.round(compassDeg)}deg)`,
+                    }}
+                    strokeWidth={2.3}
                     aria-hidden="true"
-                  >
-                    <path
-                      d="M12 2.5l6.5 16.5L12 15.2 5.5 19 12 2.5z"
-                      fill="#ffee1f"
-                      stroke="#140c04"
-                      strokeWidth="2.2"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span className="arcade-stroke-sm text-white text-xs leading-none">
+                  />
+                  <span className="font-mono-num text-[11px] font-semibold text-white leading-none">
                     {hud.distanceToStopMeters}m
                   </span>
                 </div>
@@ -1629,70 +1309,23 @@ export const GameHud: React.FC<GameHudProps> = ({
             <button
               type="button"
               tabIndex={-1}
-              aria-label="Open garage shop"
+              aria-label="Open fleet depot"
               onClick={(e) => {
                 e.currentTarget.blur();
                 onOpenShop();
               }}
-              className="flex flex-col items-center justify-center min-w-[46px] min-h-[46px] cursor-pointer relative shrink-0"
+              className="tactical-btn w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer relative shrink-0"
             >
-              {hasFreeSpin && <RedAlertBadge />}
-              <svg
-                viewBox="0 0 60 52"
-                className="w-11 h-9 drop-shadow-sm"
+              {hasFreeSpin && <SignalDot />}
+              <Warehouse
+                className="w-4 h-4 text-[#f4f3ef]"
+                strokeWidth={2}
                 aria-hidden="true"
-              >
-                <rect
-                  x="9"
-                  y="22"
-                  width="42"
-                  height="26"
-                  rx="3"
-                  fill="#f8fafc"
-                  stroke="#140c04"
-                  strokeWidth="3.4"
-                />
-                <rect
-                  x="14"
-                  y="27"
-                  width="15"
-                  height="13"
-                  rx="2"
-                  fill="#29b6f6"
-                  stroke="#140c04"
-                  strokeWidth="2.6"
-                />
-                <rect
-                  x="34"
-                  y="27"
-                  width="11"
-                  height="21"
-                  rx="2"
-                  fill="#1e88e5"
-                  stroke="#140c04"
-                  strokeWidth="2.6"
-                />
-                <path
-                  d="M6 21L11 7h38l5 14a6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0z"
-                  fill="#ffffff"
-                  stroke="#140c04"
-                  strokeWidth="3.4"
-                  strokeLinejoin="round"
-                />
-                <path d="M6 21L11 7h9l-2 14a6 6 0 01-12 0z" fill="#ff3b24" />
-                <path d="M30 21l-1-14h10l3 14a6 6 0 01-12 0z" fill="#ff3b24" />
-                <path
-                  d="M6 21L11 7h38l5 14a6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0 6 6 0 01-12 0z"
-                  fill="none"
-                  stroke="#140c04"
-                  strokeWidth="3.4"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              />
             </button>
           </div>
 
-          {/* Lower Dual-Thumb Arcade Driving Row: [◀ STEER RIGHT ▶] + [BOOST] + [BRAKE ▼ | DRIVE ▲] */}
+          {/* Lower Dual-Thumb Driving Controls */}
           <div className="flex items-stretch gap-1.5 w-full">
             {/* Left Thumb Slide-Capable Steering Rocker */}
             <div
@@ -1728,26 +1361,34 @@ export const GameHud: React.FC<GameHudProps> = ({
                 type="button"
                 tabIndex={-1}
                 aria-label="Steer left"
-                className={`arcade-btn-gold h-[56px] rounded-2xl flex items-center justify-center cursor-pointer transition-transform ${
-                  steerUiSide === 'left' ? 'translate-y-0.5 brightness-110' : ''
+                className={`tactical-btn h-[54px] rounded-xl flex items-center justify-center cursor-pointer ${
+                  steerUiSide === 'left'
+                    ? 'bg-[#2a323c] border-white/35 translate-y-0.5'
+                    : ''
                 }`}
               >
-                <span className="arcade-stroke-sm text-white text-xs">LEFT</span>
+                <span className="font-mono-num text-xs font-semibold tracking-wider text-[#f4f3ef]">
+                  ◀ LEFT
+                </span>
               </button>
 
               <button
                 type="button"
                 tabIndex={-1}
                 aria-label="Steer right"
-                className={`arcade-btn-gold h-[56px] rounded-2xl flex items-center justify-center cursor-pointer transition-transform ${
-                  steerUiSide === 'right' ? 'translate-y-0.5 brightness-110' : ''
+                className={`tactical-btn h-[54px] rounded-xl flex items-center justify-center cursor-pointer ${
+                  steerUiSide === 'right'
+                    ? 'bg-[#2a323c] border-white/35 translate-y-0.5'
+                    : ''
                 }`}
               >
-                <span className="arcade-stroke-sm text-white text-xs">RIGHT</span>
+                <span className="font-mono-num text-xs font-semibold tracking-wider text-[#f4f3ef]">
+                  RIGHT ▶
+                </span>
               </button>
             </div>
 
-            {/* Center Thumb Turbo Boost Pill */}
+            {/* Center Thumb Boost Pad */}
             <button
               type="button"
               tabIndex={-1}
@@ -1756,35 +1397,33 @@ export const GameHud: React.FC<GameHudProps> = ({
                 e.preventDefault();
                 touchControls.boostPulse = true;
               }}
-              className="arcade-boost-rim rounded-2xl p-1 min-w-[78px] h-[56px] flex items-stretch cursor-pointer shrink-0"
+              className="tactical-btn rounded-xl min-w-[76px] h-[54px] px-2 relative overflow-hidden flex flex-col items-center justify-center cursor-pointer shrink-0"
             >
-              <div className="bg-[#493214] border-2 border-[#1d1205] rounded-xl px-2 w-full relative overflow-hidden flex flex-col items-center justify-center">
-                {!hud.boostReady && !hud.isBoosting && (
-                  <div
-                    className="absolute left-0 top-0 bottom-0 bg-amber-400/30 transition-all duration-100"
-                    style={{ width: `${boostPct}%` }}
-                  />
-                )}
-                <span className="relative z-10 arcade-stroke-sm text-white text-[11px] leading-none">
-                  x{streakMultiplier}
-                </span>
-                <span
-                  className={`relative z-10 arcade-stroke-sm text-xs leading-tight ${
-                    hud.isFever
-                      ? 'text-[#ff70a6]'
-                      : hud.isBoosting
-                        ? 'text-[#6bf25c]'
-                        : hud.boostReady
-                          ? 'text-[#ffee1f]'
-                          : 'text-amber-200/80'
-                  }`}
-                >
-                  {hud.isFever ? 'FEVER!' : 'BOOST'}
-                </span>
-              </div>
+              {!hud.boostReady && !hud.isBoosting && (
+                <div
+                  className="absolute left-0 top-0 bottom-0 bg-[#ff551e]/25 transition-all duration-100"
+                  style={{ width: `${boostPct}%` }}
+                />
+              )}
+              <span className="relative z-10 font-mono-num text-[10px] text-[#9ba3ae] leading-none">
+                x{streakMultiplier}
+              </span>
+              <span
+                className={`relative z-10 font-display text-xs font-bold uppercase leading-tight mt-0.5 ${
+                  hud.isFever
+                    ? 'text-[#ff551e]'
+                    : hud.isBoosting
+                      ? 'text-[#4ade80]'
+                      : hud.boostReady
+                        ? 'text-[#facc15]'
+                        : 'text-[#f4f3ef]/75'
+                }`}
+              >
+                {hud.isFever ? 'Fever' : 'Boost'}
+              </span>
             </button>
 
-            {/* Right Thumb Brake & Gas Pedals */}
+            {/* Right Thumb Brake & Drive Pedals */}
             <div className="flex-[1.2] grid grid-cols-2 gap-1.5 touch-none">
               <button
                 type="button"
@@ -1813,14 +1452,14 @@ export const GameHud: React.FC<GameHudProps> = ({
                   touchControls.brake = false;
                   setBrakePressed(false);
                 }}
-                className={`arcade-btn-cream h-[56px] rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-transform ${
-                  brakePressed ? 'translate-y-0.5 brightness-95' : ''
+                className={`tactical-btn h-[54px] rounded-xl flex flex-col items-center justify-center cursor-pointer ${
+                  brakePressed ? 'bg-[#362226] border-[#f87171]/45 translate-y-0.5' : ''
                 }`}
               >
-                <span className="arcade-stroke-sm text-[#ff5964] text-xs leading-none">
+                <span className="font-mono-num text-xs font-semibold text-[#f87171] leading-none">
                   BRAKE
                 </span>
-                <span className="text-[10px] font-extrabold text-[#493214] leading-tight mt-0.5">
+                <span className="font-mono-num text-[9px] text-[#9ba3ae] leading-tight mt-0.5">
                   STOP
                 </span>
               </button>
@@ -1852,14 +1491,14 @@ export const GameHud: React.FC<GameHudProps> = ({
                   touchControls.gas = false;
                   setGasPressed(false);
                 }}
-                className={`arcade-btn-green h-[56px] rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-transform ${
-                  gasPressed ? 'translate-y-0.5 brightness-110' : ''
+                className={`btn-pine h-[54px] rounded-xl flex flex-col items-center justify-center cursor-pointer ${
+                  gasPressed ? 'translate-y-0.5 brightness-105' : ''
                 }`}
               >
-                <span className="arcade-stroke-sm text-white text-sm leading-none">
+                <span className="font-mono-num text-xs font-semibold text-white leading-none">
                   DRIVE
                 </span>
-                <span className="text-[10px] font-extrabold text-[#0b3b12] leading-tight mt-0.5">
+                <span className="font-mono-num text-[9px] text-white/85 leading-tight mt-0.5">
                   GO ▲
                 </span>
               </button>
@@ -1867,11 +1506,11 @@ export const GameHud: React.FC<GameHudProps> = ({
           </div>
         </div>
 
-        {/* Heading-Up GPS Radar: Upper-Right under clock on Mobile (<md, hidden during 3-2-1), Bottom-Right on Desktop (md+) */}
+        {/* Heading-Up Architectural GPS Radar */}
         <div
           className={`${
             isPreGoCountdown ? 'hidden md:flex' : 'flex'
-          } fixed right-2.5 top-[64px] md:static flex-col items-center arcade-pill-brown rounded-xl md:rounded-2xl p-1 md:p-1.5 shrink-0 z-10`}
+          } fixed right-2.5 top-[72px] md:static flex-col items-center tactical-panel rounded-xl p-1 md:p-1.5 shrink-0 z-10`}
         >
           <canvas
             ref={mapCanvasRef}
@@ -1879,13 +1518,11 @@ export const GameHud: React.FC<GameHudProps> = ({
             height={106}
             data-testid="hud-minimap"
             aria-label="Courier GPS route minimap"
-            className="block w-[72px] h-[72px] md:w-[106px] md:h-[106px] rounded-lg md:rounded-xl border-2 border-[#140c04]"
+            className="block w-[72px] h-[72px] md:w-[106px] md:h-[106px] rounded-lg border border-white/15"
           />
-          <div className="w-full flex items-center justify-between px-1 md:px-1.5 pt-0.5 md:pt-1">
-            <span className="arcade-stroke-sm text-[#ffee1f] text-[9px] md:text-xs leading-none">
-              GPS
-            </span>
-            <span className="arcade-stroke-sm text-white text-[9px] md:text-xs leading-none">
+          <div className="w-full flex items-center justify-between px-1 pt-1 font-mono-num text-[9px] md:text-[10.5px] leading-none">
+            <span className="font-semibold text-[#9ba3ae]">RADAR</span>
+            <span className="font-semibold text-[#f4f3ef]">
               {hud.speedKmh} KM/H
             </span>
           </div>

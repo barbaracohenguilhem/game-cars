@@ -128,29 +128,29 @@ export interface ProceduralTextures {
 }
 
 export function createProceduralTextures(maxAnisotropy: number): ProceduralTextures {
-  // 1. Outer Asphalt Boulevard with crisp curb edges & golden lane dashes
+  // 1. Outer Honed Basalt Boulevard with granite curb borders & crisp Nordic white lane markings
   const roadCanvas = document.createElement('canvas');
   roadCanvas.width = 256;
   roadCanvas.height = 256;
   const rctx = roadCanvas.getContext('2d')!;
-  rctx.fillStyle = '#7b869c';
+  rctx.fillStyle = '#404750';
   rctx.fillRect(0, 0, 256, 256);
-  // Subtle sidewalk gutter border
-  rctx.strokeStyle = '#9aa5ba';
-  rctx.lineWidth = 12;
-  rctx.strokeRect(6, 6, 244, 244);
-  // Subtle asphalt grain
-  rctx.fillStyle = 'rgba(255,255,255,0.04)';
+  // Granite gutter border
+  rctx.strokeStyle = '#6c7580';
+  rctx.lineWidth = 10;
+  rctx.strokeRect(5, 5, 246, 246);
+  // Subtle mineral aggregate grain
+  rctx.fillStyle = 'rgba(255,255,255,0.03)';
   for (let i = 0; i < 60; i++) {
-    rctx.fillRect((i * 47) % 240, (i * 83) % 240, 4, 4);
+    rctx.fillRect((i * 47) % 240, (i * 83) % 240, 3, 3);
   }
-  // Warm golden-yellow center dashes
-  rctx.fillStyle = '#fcc936';
+  // Crisp Nordic off-white center lane dashes
+  rctx.fillStyle = '#f2f0ea';
   rctx.beginPath();
-  rctx.roundRect(119, 32, 18, 68, 7);
-  rctx.roundRect(119, 156, 18, 68, 7);
-  rctx.roundRect(32, 119, 68, 18, 7);
-  rctx.roundRect(156, 119, 68, 18, 7);
+  rctx.roundRect(121, 32, 14, 68, 3);
+  rctx.roundRect(121, 156, 14, 68, 3);
+  rctx.roundRect(32, 121, 68, 14, 3);
+  rctx.roundRect(156, 121, 68, 14, 3);
   rctx.fill();
   const outerRoadTex = new THREE.CanvasTexture(roadCanvas);
   outerRoadTex.colorSpace = THREE.SRGBColorSpace;
@@ -160,27 +160,27 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   outerRoadTex.offset.set(0.5, 0.5);
   outerRoadTex.anisotropy = maxAnisotropy;
 
-  // 2. Inner Avenue Cobblestone / Modular Pavers with crisp two-way center lane dashes!
+  // 2. Inner Avenue Pale Granite Modular Pavers with crisp white lane dividers
   const paverCanvas = document.createElement('canvas');
   paverCanvas.width = 256;
   paverCanvas.height = 256;
   const pctx = paverCanvas.getContext('2d')!;
-  pctx.fillStyle = '#aeb9cc';
+  pctx.fillStyle = '#6f7780';
   pctx.fillRect(0, 0, 256, 256);
-  pctx.fillStyle = '#d8e0ed';
+  pctx.fillStyle = '#8b939c';
   pctx.beginPath();
-  pctx.roundRect(10, 10, 106, 106, 14);
-  pctx.roundRect(140, 10, 106, 106, 14);
-  pctx.roundRect(10, 140, 106, 106, 14);
-  pctx.roundRect(140, 140, 106, 106, 14);
+  pctx.roundRect(8, 8, 110, 110, 6);
+  pctx.roundRect(138, 8, 110, 110, 6);
+  pctx.roundRect(8, 138, 110, 110, 6);
+  pctx.roundRect(138, 138, 110, 110, 6);
   pctx.fill();
-  // Crisp white/amber two-way center lane dividers
-  pctx.fillStyle = '#fff9db';
+  // Crisp alabaster two-way center lane dividers
+  pctx.fillStyle = '#f5f3ee';
   pctx.beginPath();
-  pctx.roundRect(121, 30, 14, 62, 6);
-  pctx.roundRect(121, 164, 14, 62, 6);
-  pctx.roundRect(30, 121, 62, 14, 6);
-  pctx.roundRect(164, 121, 62, 14, 6);
+  pctx.roundRect(122, 30, 12, 62, 3);
+  pctx.roundRect(122, 164, 12, 62, 3);
+  pctx.roundRect(30, 122, 62, 12, 3);
+  pctx.roundRect(164, 122, 62, 12, 3);
   pctx.fill();
   const innerPaverTex = new THREE.CanvasTexture(paverCanvas);
   innerPaverTex.colorSpace = THREE.SRGBColorSpace;
@@ -190,20 +190,20 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   innerPaverTex.offset.set(0.5, 0.5);
   innerPaverTex.anisotropy = maxAnisotropy;
 
-  // 3. Warm Sandstone / Terracotta Courtyard & Town Plaza Tiles
+  // 3. Honed Gotland Limestone & Travertine Plaza Slabs
   const plazaCanvas = document.createElement('canvas');
   plazaCanvas.width = 256;
   plazaCanvas.height = 256;
   const zctx = plazaCanvas.getContext('2d')!;
-  zctx.fillStyle = '#e7d6bd';
+  zctx.fillStyle = '#d4cfc4';
   zctx.fillRect(0, 0, 256, 256);
-  const tileShades = ['#f6ead7', '#f0dec4', '#f8efe0', '#ecd7ba'];
+  const tileShades = ['#edeae2', '#e6e2d9', '#f1efe8', '#e1ddd3'];
   const cell = 64;
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
       zctx.fillStyle = tileShades[(r + c) % tileShades.length];
       zctx.beginPath();
-      zctx.roundRect(c * cell + 4, r * cell + 4, cell - 8, cell - 8, 9);
+      zctx.roundRect(c * cell + 3, r * cell + 3, cell - 6, cell - 6, 4);
       zctx.fill();
     }
   }
@@ -215,23 +215,23 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   plazaPaverTex.offset.set(0.5, 0.5);
   plazaPaverTex.anisotropy = maxAnisotropy;
 
-  // 4. Timber Canal Bridge Planks with bolted side stringers
+  // 4. Pale Oiled Scandinavian Birch & Ash Canal Bridge Planks with dark steel bolts
   const bridgeCanvas = document.createElement('canvas');
   bridgeCanvas.width = 256;
   bridgeCanvas.height = 256;
   const bctx = bridgeCanvas.getContext('2d')!;
-  bctx.fillStyle = '#c8733d';
+  bctx.fillStyle = '#9c8970';
   bctx.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 6; i++) {
-    bctx.fillStyle = i % 2 === 0 ? '#fad682' : '#f1c364';
+    bctx.fillStyle = i % 2 === 0 ? '#dfd1bc' : '#d5c5ad';
     bctx.beginPath();
-    bctx.roundRect(18, 6 + i * 42, 220, 35, 8);
+    bctx.roundRect(16, 5 + i * 42, 224, 36, 4);
     bctx.fill();
-    // Subtle nail heads
-    bctx.fillStyle = '#b56533';
+    // Steel fastener heads
+    bctx.fillStyle = '#47505a';
     bctx.beginPath();
-    bctx.arc(32, 23 + i * 42, 3.5, 0, Math.PI * 2);
-    bctx.arc(224, 23 + i * 42, 3.5, 0, Math.PI * 2);
+    bctx.arc(30, 23 + i * 42, 3, 0, Math.PI * 2);
+    bctx.arc(226, 23 + i * 42, 3, 0, Math.PI * 2);
     bctx.fill();
   }
   const woodBridgeTex = new THREE.CanvasTexture(bridgeCanvas);
@@ -263,15 +263,15 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   clayBumpTex.wrapT = THREE.RepeatWrapping;
   clayBumpTex.repeat.set(2, 2);
 
-  // 6. Soft Radial Contact Shadow Disc
+  // 6. Soft Neutral Slate Contact Shadow Disc
   const shadCanvas = document.createElement('canvas');
   shadCanvas.width = 128;
   shadCanvas.height = 128;
   const sctx = shadCanvas.getContext('2d')!;
   const grad = sctx.createRadialGradient(64, 64, 10, 64, 64, 60);
-  grad.addColorStop(0, 'rgba(30, 52, 78, 0.44)');
-  grad.addColorStop(0.65, 'rgba(30, 52, 78, 0.16)');
-  grad.addColorStop(1, 'rgba(30, 52, 78, 0)');
+  grad.addColorStop(0, 'rgba(18, 24, 32, 0.40)');
+  grad.addColorStop(0.65, 'rgba(18, 24, 32, 0.14)');
+  grad.addColorStop(1, 'rgba(18, 24, 32, 0)');
   sctx.fillStyle = grad;
   sctx.fillRect(0, 0, 128, 128);
   const shadowDiscTex = new THREE.CanvasTexture(shadCanvas);
@@ -320,35 +320,42 @@ export function createNumberPinTexture(
   const ctx = c.getContext('2d')!;
   ctx.clearRect(0, 0, 128, 128);
 
-  // Drop shadow pointer teardrop
-  ctx.fillStyle = 'rgba(28, 46, 70, 0.28)';
+  // Subtle ambient shadow
+  ctx.fillStyle = 'rgba(18, 24, 32, 0.28)';
   ctx.beginPath();
-  ctx.arc(64, 58, 44, 0, Math.PI * 2);
+  ctx.arc(64, 56, 43, 0, Math.PI * 2);
   ctx.fill();
 
-  // Cream outer pointer pin
-  ctx.fillStyle = '#fffdf8';
+  // Architectural dark graphite outer marker & sharp pointer nib
+  ctx.fillStyle = '#181d23';
   ctx.beginPath();
-  ctx.arc(64, 52, 44, 0, Math.PI * 2);
+  ctx.arc(64, 51, 43, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(42, 84);
+  ctx.moveTo(45, 84);
   ctx.lineTo(64, 116);
-  ctx.lineTo(86, 84);
+  ctx.lineTo(83, 84);
   ctx.closePath();
   ctx.fill();
+
+  // Thin alabaster hairline ring
+  ctx.strokeStyle = '#f5f3ee';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(64, 51, 38, 0, Math.PI * 2);
+  ctx.stroke();
 
   // Inner badge circle
   ctx.fillStyle = bgHex;
   ctx.beginPath();
-  ctx.arc(64, 52, 35, 0, Math.PI * 2);
+  ctx.arc(64, 51, 35, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = '800 46px Outfit, sans-serif';
+  ctx.font = '700 44px Outfit, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(String(num), 64, 54);
+  ctx.fillText(String(num), 64, 53);
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -397,36 +404,36 @@ export function createToyTruckMesh(
   root.add(bodyTiltGroup);
 
   const cabMat = new THREE.MeshStandardMaterial({
-    color: 0xf48836,
-    roughness: 0.52,
+    color: 0xff551e,
+    roughness: 0.46,
     metalness: 0.08,
     bumpMap: clayBump,
-    bumpScale: 0.005,
+    bumpScale: 0.004,
   });
   const cargoMat = new THREE.MeshStandardMaterial({
-    color: 0xfff6e6,
-    roughness: 0.48,
-    metalness: 0.05,
+    color: 0xf5f3ee,
+    roughness: 0.52,
+    metalness: 0.04,
   });
   const stripeMat = new THREE.MeshStandardMaterial({
-    color: 0xffb703,
-    roughness: 0.42,
-    metalness: 0.06,
+    color: 0x181d23,
+    roughness: 0.45,
+    metalness: 0.1,
   });
   const taillightMat = new THREE.MeshStandardMaterial({
-    color: 0xff4d5a,
+    color: 0xdc2626,
     roughness: 0.22,
     metalness: 0.05,
-    emissive: 0xe63946,
+    emissive: 0xdc2626,
     emissiveIntensity: 0.5,
   });
 
-  const darkTrimMat = getCachedStandardMat(0x2f3847, 0.72, 0.14);
-  const chromeMat = getCachedStandardMat(0xe8eef5, 0.25, 0.45);
-  const glassMat = getCachedStandardMat(0x6ec6f5, 0.12, 0.28);
-  const headlightMat = getCachedStandardMat(0xfff6b8, 0.18, 0.05, 0xffd54f, 0.75);
-  const beaconMat = getCachedStandardMat(0xffbe0b, 0.2, 0.08, 0xff9f1c, 0.65);
-  const woodRailMat = getCachedStandardMat(0xc98848, 0.7, 0.03);
+  const darkTrimMat = getCachedStandardMat(0x1e242b, 0.72, 0.16);
+  const chromeMat = getCachedStandardMat(0xdce2e8, 0.28, 0.48);
+  const glassMat = getCachedStandardMat(0x52718a, 0.14, 0.3);
+  const headlightMat = getCachedStandardMat(0xfff8dc, 0.18, 0.05, 0xfde68a, 0.75);
+  const beaconMat = getCachedStandardMat(0xff551e, 0.22, 0.08, 0xff551e, 0.65);
+  const woodRailMat = getCachedStandardMat(0xd2c0a5, 0.74, 0.02);
 
   // 1. Underbody Chassis Frame + Front/Rear Bumpers + Optional Bullbar
   const chassis = new THREE.Mesh(
@@ -557,9 +564,9 @@ export function createToyTruckMesh(
     })(),
     [TopperId.RubberDuck]: (() => {
       const g = new THREE.Group();
-      const yellowMat = getCachedStandardMat(0xffdf24, 0.38, 0.04);
-      const beakMat = getCachedStandardMat(0xff7b00, 0.4, 0.04);
-      const eyeMat = getCachedStandardMat(0x140c04, 0.2, 0.05);
+      const yellowMat = getCachedStandardMat(0xe09f3e, 0.58, 0.03);
+      const beakMat = getCachedStandardMat(0xc84b31, 0.52, 0.04);
+      const eyeMat = getCachedStandardMat(0x181d23, 0.2, 0.05);
       const body = new THREE.Mesh(
         getSharedGeo('top_duck_b', () => new THREE.SphereGeometry(0.18, 12, 10)),
         yellowMat,
@@ -589,9 +596,9 @@ export function createToyTruckMesh(
     })(),
     [TopperId.EspressoCup]: (() => {
       const g = new THREE.Group();
-      const creamM = getCachedStandardMat(0xfff8ec, 0.45, 0.04);
-      const mintM = getCachedStandardMat(0x2ec4b6, 0.4, 0.06);
-      const espM = getCachedStandardMat(0x4a2c18, 0.35, 0.05);
+      const creamM = getCachedStandardMat(0xf5f3ee, 0.5, 0.03);
+      const mintM = getCachedStandardMat(0x3b5b7e, 0.46, 0.05);
+      const espM = getCachedStandardMat(0x3b2618, 0.35, 0.05);
       const saucer = new THREE.Mesh(
         getSharedGeo('top_saucer', () => new THREE.CylinderGeometry(0.24, 0.18, 0.045, 14)),
         creamM,
@@ -611,7 +618,7 @@ export function createToyTruckMesh(
     })(),
     [TopperId.PartyBalloons]: (() => {
       const g = new THREE.Group();
-      const cols = [0xff595e, 0xffca3a, 0x38bdf8];
+      const cols = [0xff551e, 0xf5f3ee, 0x2a7b6f];
       const offs = [
         [-0.16, 0.42, -0.04],
         [0.0, 0.52, 0.05],
@@ -630,7 +637,7 @@ export function createToyTruckMesh(
         s.position.set(bx * 0.5, by * 0.48, bz * 0.5);
         const b = new THREE.Mesh(
           balGeo,
-          getCachedStandardMat(cols[idx], 0.35, 0.05),
+          getCachedStandardMat(cols[idx], 0.42, 0.05),
         );
         b.scale.set(1, 1.18, 1);
         b.position.set(bx, by, bz);
@@ -788,7 +795,7 @@ export function createToyTruckMesh(
   });
 
   const parcelBoxes: THREE.Group[] = [];
-  const boxColors = [0xf5be72, 0xff94b2, 0x7fd0f8, 0xfcd868, 0x9ee07a];
+  const boxColors = [0xd8c3a5, 0xe5e0d5, 0xc84b31, 0x3b5b7e, 0x2a7b6f];
   const boxKinds: ParcelKind[] = [
     ParcelKind.Small,
     ParcelKind.HotExpress,
@@ -841,21 +848,21 @@ export function createToyTruckMesh(
     });
 
     if (vid === VehicleId.KeiTruck) {
-      cabMat.color.setHex(0x2ec4b6);
-      cargoMat.color.setHex(0xfff9ef);
-      stripeMat.color.setHex(0xffbe0b);
+      cabMat.color.setHex(0x2a7b6f);
+      cargoMat.color.setHex(0xf5f3ee);
+      stripeMat.color.setHex(0xd2c0a5);
     } else if (vid === VehicleId.VespaTrike) {
-      cabMat.color.setHex(0xe63946);
-      cargoMat.color.setHex(0xfff4e6);
-      stripeMat.color.setHex(0xffd166);
+      cabMat.color.setHex(0xc84b31);
+      cargoMat.color.setHex(0xf5f3ee);
+      stripeMat.color.setHex(0x181d23);
     } else if (vid === VehicleId.ArmoredVan) {
-      cabMat.color.setHex(0x2b59c3);
-      cargoMat.color.setHex(0xeef4ff);
-      stripeMat.color.setHex(0xffbe0b);
+      cabMat.color.setHex(0x3b5b7e);
+      cargoMat.color.setHex(0xedece6);
+      stripeMat.color.setHex(0xff551e);
     } else {
-      cabMat.color.setHex(0xf48836);
-      cargoMat.color.setHex(0xfff6e6);
-      stripeMat.color.setHex(0xffb703);
+      cabMat.color.setHex(0xff551e);
+      cargoMat.color.setHex(0xf5f3ee);
+      stripeMat.color.setHex(0x181d23);
     }
   };
 
@@ -886,16 +893,16 @@ export function createToyTruckMesh(
 }
 
 export function createMiniParcelMesh(
-  colorHex: number = 0xf4be74,
+  colorHex: number = 0xd8c3a5,
   kind: ParcelKind = ParcelKind.Small,
 ): THREE.Group {
   const g = new THREE.Group();
 
   if (kind === ParcelKind.Large) {
-    // Heavy Slatted Timber Freight Crate with Dual Dark Steel Cargo Straps!
-    const crateMat = getCachedStandardMat(0xd99b52, 0.74, 0.03);
-    const strapMat = getCachedStandardMat(0x2d3748, 0.48, 0.35);
-    const badgeMat = getCachedStandardMat(colorHex, 0.42, 0.05);
+    // Pale Scandinavian Birch Freight Crate with Dual Matte Graphite Straps
+    const crateMat = getCachedStandardMat(0xd8c5ab, 0.76, 0.02);
+    const strapMat = getCachedStandardMat(0x222830, 0.5, 0.32);
+    const badgeMat = getCachedStandardMat(colorHex, 0.48, 0.04);
 
     const crate = new THREE.Mesh(
       createBeveledBlockGeometry(0.46, 0.34, 0.44, 0.04, 0.018),
@@ -923,9 +930,9 @@ export function createMiniParcelMesh(
   }
 
   if (kind === ParcelKind.Fragile) {
-    // Pastel Gift / Glass Box with Crossed Satin Ribbon & 3D Bow!
-    const giftMat = getCachedStandardMat(0xfff1f5, 0.45, 0.04);
-    const ribbonMat = getCachedStandardMat(0xf43f5e, 0.34, 0.08);
+    // Architectural Alabaster Specimen Box with Signal Orange Banding
+    const giftMat = getCachedStandardMat(0xf5f3ee, 0.48, 0.03);
+    const ribbonMat = getCachedStandardMat(0xff551e, 0.4, 0.06);
 
     const box = new THREE.Mesh(
       createBeveledBlockGeometry(0.36, 0.26, 0.36, 0.05, 0.018),
@@ -960,9 +967,9 @@ export function createMiniParcelMesh(
   }
 
   if (kind === ParcelKind.HotExpress) {
-    // Crimson Insulated Thermal Pizza / Bento Carrier with Gold Foil Trim!
-    const bagMat = getCachedStandardMat(0xe63946, 0.42, 0.06, 0xff4d00, 0.18);
-    const goldMat = getCachedStandardMat(0xffd166, 0.3, 0.25);
+    // Terracotta Insulated Thermal Cube with Brushed Steel Clasp
+    const bagMat = getCachedStandardMat(0xc84b31, 0.46, 0.06, 0xff551e, 0.14);
+    const goldMat = getCachedStandardMat(0xdce2e8, 0.3, 0.35);
     const bag = new THREE.Mesh(
       createBeveledBlockGeometry(0.4, 0.22, 0.4, 0.055, 0.018),
       bagMat,
@@ -977,10 +984,10 @@ export function createMiniParcelMesh(
     return g;
   }
 
-  // ParcelKind.Small — Nimble Express Flyer Carton
-  const boxMat = getCachedStandardMat(colorHex, 0.66, 0.02);
-  const tapeMat = getCachedStandardMat(0xfff8e8, 0.36, 0.05);
-  const labelMat = getCachedStandardMat(0x10b981, 0.42, 0.04);
+  // ParcelKind.Small — Unbleached Kraft Carton
+  const boxMat = getCachedStandardMat(colorHex, 0.72, 0.02);
+  const tapeMat = getCachedStandardMat(0xf5f3ee, 0.42, 0.03);
+  const labelMat = getCachedStandardMat(0x16a34a, 0.46, 0.04);
 
   const box = new THREE.Mesh(
     createBeveledBlockGeometry(0.32, 0.19, 0.32, 0.045, 0.016),
@@ -1326,8 +1333,8 @@ export function createCitizenStopRig(
     person.headGroup.add(cap);
   }
 
-  // Cute front-yard home mailbox & welcome stone next to the waiting customer
-  const postMat = getCachedStandardMat(0x8d5b3c, 0.78, 0.02);
+  // Architectural post & parcel postbox next to waiting customer
+  const postMat = getCachedStandardMat(0x262d36, 0.65, 0.2);
   const boxMat = getCachedStandardMat(stop.hatColor, 0.48, 0.08);
   const post = new THREE.Mesh(
     getSharedGeo('stop_post', () => new THREE.CylinderGeometry(0.035, 0.04, 0.44, 8)),
@@ -1347,7 +1354,7 @@ export function createCitizenStopRig(
   deliveredParcel.visible = false;
   citizenGroup.add(deliveredParcel);
 
-  // Numbered Teardrop Route Pin Sprite above Customer
+  // Numbered Route Pin Sprite above Customer
   const hexStr = '#' + stop.hatColor.toString(16).padStart(6, '0');
   const pinTex = createNumberPinTexture(stop.index, hexStr, maxAnisotropy);
   const pinMat = new THREE.SpriteMaterial({ map: pinTex, transparent: true });
@@ -1356,13 +1363,13 @@ export function createCitizenStopRig(
   pinSprite.scale.set(0.92, 0.92, 0.92);
   citizenGroup.add(pinSprite);
 
-  // Road Delivery Drop Zone Ring + Inner Glowing Gold Bullseye Target Ring!
+  // Precision Curbside Delivery Drop Zone Ring + Inner Bullseye Target Ring
   const padGroup = new THREE.Group();
   padGroup.position.set(roadWorld.x, 0.254, roadWorld.z);
 
   const outerRingMat = markShared(
     new THREE.MeshBasicMaterial({
-      color: 0xffb703,
+      color: 0xff551e,
       transparent: true,
       opacity: 0.92,
       side: THREE.DoubleSide,
@@ -1378,27 +1385,27 @@ export function createCitizenStopRig(
 
   const bullseyeRing = new THREE.Mesh(
     getSharedGeo('pad_bullseye', () => new THREE.RingGeometry(0.22, 0.4, 24)),
-    getSharedBasicMat(0xfff35c, 0.95),
+    getSharedBasicMat(0xeab308, 0.95),
   );
   bullseyeRing.rotation.x = -Math.PI / 2;
   bullseyeRing.position.y = 0.024;
 
   const innerFill = new THREE.Mesh(
     getSharedGeo('pad_fill', () => new THREE.CircleGeometry(0.72, 24)),
-    getSharedBasicMat(0xffe699, 0.34),
+    getSharedBasicMat(0xf5f3ee, 0.26),
   );
   innerFill.rotation.x = -Math.PI / 2;
   innerFill.position.y = 0.014;
 
-  // Tall Bird's-Eye Overview Sky-Pillar so Active Stop #1 pops unmistakably during the 3-2-1 flyover!
-  const overviewBeam = createOverviewBeaconMesh(0xffdf24, 0xff9f1c);
+  // Bird's-Eye Overview Sky-Pillar so Active Stop #1 reads cleanly during flyover
+  const overviewBeam = createOverviewBeaconMesh(0xff551e, 0xf5f3ee);
   padGroup.add(innerFill, outerRing, bullseyeRing, overviewBeam);
 
-  // Floating Cheerful 3D Excitement Star/Heart Charm beside active/celebrating customer!
+  // Floating Geometric Status Charm beside active/celebrating customer
   const excitementBadge = new THREE.Group();
   excitementBadge.position.set(0.38, 1.48, 0.14);
-  const charmMat = getCachedStandardMat(0xffe524, 0.22, 0.12, 0xffbe0b, 0.85);
-  const heartMat = getCachedStandardMat(0xff5c8a, 0.25, 0.06, 0xff477e, 0.7);
+  const charmMat = getCachedStandardMat(0xeab308, 0.25, 0.15, 0xd97706, 0.7);
+  const heartMat = getCachedStandardMat(0xff551e, 0.28, 0.06, 0xff551e, 0.65);
   const charmCore = new THREE.Mesh(
     getSharedGeo('cust_charm_oct', () => new THREE.OctahedronGeometry(0.11, 0)),
     charmMat,
@@ -1465,72 +1472,72 @@ export function createPastelBuildingMesh(
     { wall: number; trim: number; accent: number; window: number; roof: number }
   > = {
     [BuildingTheme.PeriwinkleTower]: {
-      wall: 0x95a5f6,
-      trim: 0xf1f4ff,
-      accent: 0xfcd259,
-      window: 0x4d68b8,
-      roof: 0x7e8ee0,
+      wall: 0x7c8d9e,
+      trim: 0xf2f0ea,
+      accent: 0x3b5b7e,
+      window: 0x2c3e50,
+      roof: 0x2b333c,
     },
     [BuildingTheme.PinkPinTower]: {
-      wall: 0xf698c4,
-      trim: 0xfff5fa,
-      accent: 0xf48c46,
-      window: 0x5c769e,
-      roof: 0xe37ead,
+      wall: 0xe8dfd5,
+      trim: 0xf7f5f0,
+      accent: 0xc84b31,
+      window: 0x334656,
+      roof: 0x363d45,
     },
     [BuildingTheme.ApricotArchShop]: {
-      wall: 0xf6b963,
-      trim: 0xfff6e5,
-      accent: 0xe76f51,
-      window: 0x62a8d8,
-      roof: 0xe29d48,
+      wall: 0xdfc496,
+      trim: 0xf5f2eb,
+      accent: 0x9c4a32,
+      window: 0x354b5e,
+      roof: 0x464d56,
     },
     [BuildingTheme.SkyBlueCafe]: {
-      wall: 0x7acbf6,
-      trim: 0xf5fbff,
-      accent: 0xf2709c,
-      window: 0x3f88b8,
-      roof: 0x5cb3e2,
+      wall: 0xbacbd4,
+      trim: 0xf5f4ef,
+      accent: 0x2a7b6f,
+      window: 0x2d4354,
+      roof: 0x333c45,
     },
     [BuildingTheme.SunnyHeartShop]: {
-      wall: 0xfbdf72,
-      trim: 0xfffdf0,
-      accent: 0xf4799b,
-      window: 0x5898c4,
-      roof: 0xe8c44f,
+      wall: 0xebe6dc,
+      trim: 0xfaf8f5,
+      accent: 0xd88c3a,
+      window: 0x34495a,
+      roof: 0x3e464f,
     },
     [BuildingTheme.TerracottaBakery]: {
-      wall: 0xe88e5d,
-      trim: 0xfff3e6,
-      accent: 0x52b788,
-      window: 0x599cc7,
-      roof: 0xcf7344,
+      wall: 0xb84a39,
+      trim: 0xf4f1ea,
+      accent: 0x2a7b6f,
+      window: 0x2a3b4a,
+      roof: 0x262b31,
     },
     [BuildingTheme.MintMansardApartments]: {
-      wall: 0x98dfbf,
-      trim: 0xf7fff9,
-      accent: 0xf4a261,
-      window: 0x497999,
-      roof: 0x4a576b, // Parisian slate Mansard roof!
+      wall: 0xa9baa9,
+      trim: 0xf4f3ee,
+      accent: 0x3b5b7e,
+      window: 0x2d404e,
+      roof: 0x2d353e,
     },
     [BuildingTheme.ClockTowerHall]: {
-      wall: 0xf4e4c8,
-      trim: 0xfffcf5,
-      accent: 0xd97f45,
-      window: 0x4c7399,
-      roof: 0x4ea898, // Copper-verdigris spire!
+      wall: 0xefeae0,
+      trim: 0xfaf9f5,
+      accent: 0xb84a39,
+      window: 0x2f4354,
+      roof: 0x457d72,
     },
   };
 
   const colors = paletteMap[lot.theme];
-  const wallMat = getCachedStandardMat(colors.wall, 0.7, 0.03);
-  const trimMat = getCachedStandardMat(colors.trim, 0.48, 0.04);
-  const winMat = getCachedStandardMat(colors.window, 0.16, 0.24);
-  const accentMat = getCachedStandardMat(colors.accent, 0.46, 0.06);
-  const roofMat = getCachedStandardMat(colors.roof, 0.62, 0.06);
-  const darkMetalMat = getCachedStandardMat(0x374151, 0.55, 0.25);
-  const woodMat = getCachedStandardMat(0xa46338, 0.72, 0.03);
-  const foliageMat = getCachedStandardMat(0x69c655, 0.68, 0.02);
+  const wallMat = getCachedStandardMat(colors.wall, 0.78, 0.02);
+  const trimMat = getCachedStandardMat(colors.trim, 0.56, 0.03);
+  const winMat = getCachedStandardMat(colors.window, 0.16, 0.28);
+  const accentMat = getCachedStandardMat(colors.accent, 0.54, 0.04);
+  const roofMat = getCachedStandardMat(colors.roof, 0.64, 0.08);
+  const darkMetalMat = getCachedStandardMat(0x222830, 0.52, 0.3);
+  const woodMat = getCachedStandardMat(0xb89972, 0.74, 0.02);
+  const foliageMat = getCachedStandardMat(0x5d7d59, 0.72, 0.02);
 
   // Compact 0.68 footprint leaves a lush green sidewalk setback on every block for real boulevard street trees!
   const w = TILE_SIZE * 0.68;
@@ -1833,7 +1840,7 @@ export function createTreeMesh(
     );
     sidePuff.position.set(0.18, 0.16, 0.1);
 
-    const budMat = getCachedStandardMat(0xff8fab, 0.45, 0.02);
+    const budMat = getCachedStandardMat(0xf2ebe1, 0.52, 0.02);
     const budGeo = getSharedGeo('bush_bud', () => new THREE.SphereGeometry(0.055, 8, 6));
     for (const [bx, by, bz] of [
       [-0.12, 0.34, 0.14],
@@ -1848,7 +1855,7 @@ export function createTreeMesh(
     return g;
   }
 
-  const barkHex = prop.variant === 'sakura' ? 0x6d4534 : 0xa96938;
+  const barkHex = prop.variant === 'sakura' ? 0x6b5c52 : 0x8c7b6b;
   const trunkMat = getCachedStandardMat(barkHex, 0.84, 0.02);
 
   const trunk = new THREE.Mesh(
@@ -1950,10 +1957,10 @@ export function createStreetPropMesh(
   g.position.set(prop.x, 0.42, prop.z);
   g.rotation.y = prop.yaw;
 
-  const ironMat = getCachedStandardMat(0x2f3948, 0.58, 0.32);
-  const stoneMat = getCachedStandardMat(0xede6da, 0.65, 0.04);
-  const woodMat = getCachedStandardMat(0xb97442, 0.72, 0.03);
-  const accentMat = getCachedStandardMat(prop.accentHex, 0.48, 0.06);
+  const ironMat = getCachedStandardMat(0x222830, 0.58, 0.32);
+  const stoneMat = getCachedStandardMat(0xe8e4dc, 0.68, 0.03);
+  const woodMat = getCachedStandardMat(0xc4a882, 0.74, 0.02);
+  const accentMat = getCachedStandardMat(prop.accentHex, 0.52, 0.05);
 
   if (prop.kind === 'streetlamp') {
     const base = new THREE.Mesh(
@@ -2135,7 +2142,7 @@ export function createStreetPropMesh(
   );
   const greenery = new THREE.Mesh(
     getSharedGeo('flw_grn', () => new THREE.BoxGeometry(0.4, 0.1, 0.18)),
-    getCachedStandardMat(0x5ec252, 0.7, 0.02),
+    getCachedStandardMat(0x5d7d59, 0.72, 0.02),
   );
   greenery.position.y = 0.2;
   const bloom = new THREE.Mesh(
@@ -2593,9 +2600,9 @@ export function createTrafficSignalMesh(signal: TrafficSignal): TrafficSignalRig
   const cornerOff = TILE_SIZE * 0.51;
   root.position.set(signal.x + cornerOff, 0.25, signal.z + cornerOff);
 
-  const poleMat = getCachedStandardMat(0x2d3748, 0.52, 0.36);
-  const housingMat = getCachedStandardMat(0xf5b700, 0.44, 0.1);
-  const stopLineMat = getCachedStandardMat(0xffffff, 0.5, 0.02);
+  const poleMat = getCachedStandardMat(0x222830, 0.52, 0.36);
+  const housingMat = getCachedStandardMat(0x181d23, 0.48, 0.14);
+  const stopLineMat = getCachedStandardMat(0xf5f3ee, 0.5, 0.02);
 
   // Base & Mast
   const base = new THREE.Mesh(
@@ -2738,10 +2745,10 @@ export function createCoffeeKioskMesh(
   shad.position.y = 0.015;
   boothGroup.add(shad);
 
-  const boothMat = getCachedStandardMat(0xfff8ec, 0.55, 0.04);
-  const mintMat = getCachedStandardMat(0x2ec4b6, 0.46, 0.06);
-  const woodMat = getCachedStandardMat(0x9c6644, 0.7, 0.03);
-  const espressoMat = getCachedStandardMat(0x4a2c18, 0.35, 0.05);
+  const boothMat = getCachedStandardMat(0xf5f3ee, 0.58, 0.03);
+  const mintMat = getCachedStandardMat(0x2a7b6f, 0.5, 0.05);
+  const woodMat = getCachedStandardMat(0xc4a882, 0.72, 0.02);
+  const espressoMat = getCachedStandardMat(0x3a2416, 0.35, 0.05);
 
   const cabin = new THREE.Mesh(
     createBeveledBlockGeometry(0.96, 0.88, 0.86, 0.12, 0.03),
@@ -2763,7 +2770,7 @@ export function createCoffeeKioskMesh(
   awning.rotation.x = 0.28;
   boothGroup.add(counter, awning);
 
-  // Giant Rooftop Espresso Cup Sign!
+  // Rooftop Stoneware Fika Cup Sign
   const cupGroup = new THREE.Group();
   cupGroup.position.set(0, 0.94, 0);
   const saucer = new THREE.Mesh(
@@ -2789,17 +2796,17 @@ export function createCoffeeKioskMesh(
   cupGroup.add(saucer, cupBody, crema, handle);
   boothGroup.add(cupGroup);
 
-  // Glowing Drive-Thru Pickup Ring on adjacent road!
+  // Curbside Drive-Thru Pickup Ring on adjacent road
   const roadRingGroup = new THREE.Group();
   roadRingGroup.position.set(kiosk.roadX, 0.256, kiosk.roadZ);
   const ring = new THREE.Mesh(
     getSharedGeo('kiosk_ring', () => new THREE.RingGeometry(0.56, 0.78, 24)),
-    getSharedBasicMat(0x10b981, 0.88),
+    getSharedBasicMat(0x16a34a, 0.88),
   );
   ring.rotation.x = -Math.PI / 2;
   const fill = new THREE.Mesh(
     getSharedGeo('kiosk_fill', () => new THREE.CircleGeometry(0.54, 20)),
-    getSharedBasicMat(0x6ee7b7, 0.32),
+    getSharedBasicMat(0x86efac, 0.24),
   );
   fill.rotation.x = -Math.PI / 2;
   roadRingGroup.add(fill, ring);
@@ -2894,10 +2901,10 @@ export function createMechanicGarageMesh(
   shad.position.y = 0.015;
   bayGroup.add(shad);
 
-  const brickMat = getCachedStandardMat(0x3a86ff, 0.54, 0.08);
-  const creamMat = getCachedStandardMat(0xfff8eb, 0.48, 0.04);
-  const chromeMat = getCachedStandardMat(0xe2e8f0, 0.25, 0.55);
-  const goldMat = getCachedStandardMat(0xffbe0b, 0.38, 0.12);
+  const brickMat = getCachedStandardMat(0x3b5b7e, 0.56, 0.08);
+  const creamMat = getCachedStandardMat(0xf2f0ea, 0.54, 0.03);
+  const chromeMat = getCachedStandardMat(0xdce2e8, 0.28, 0.5);
+  const goldMat = getCachedStandardMat(0xff551e, 0.42, 0.1);
 
   const bay = new THREE.Mesh(
     createBeveledBlockGeometry(1.06, 0.9, 0.9, 0.12, 0.03),
@@ -3075,13 +3082,13 @@ export function createRivalCourierMesh(
   vanGroup.add(shad);
 
   const purpleMat = new THREE.MeshStandardMaterial({
-    color: 0x7c3aed,
-    roughness: 0.42,
-    metalness: 0.12,
+    color: 0x263850,
+    roughness: 0.44,
+    metalness: 0.14,
   });
-  const goldMat = getCachedStandardMat(0xffdf24, 0.3, 0.2, 0xf59e0b, 0.35);
-  const glassMat = getCachedStandardMat(0x6ec6f5, 0.14, 0.28);
-  const tireMat = getCachedStandardMat(0x1f2937, 0.8, 0.1);
+  const goldMat = getCachedStandardMat(0xeab308, 0.32, 0.22, 0xd97706, 0.3);
+  const glassMat = getCachedStandardMat(0x52718a, 0.14, 0.28);
+  const tireMat = getCachedStandardMat(0x181d23, 0.8, 0.1);
 
   const bodyTiltGroup = new THREE.Group();
   vanGroup.add(bodyTiltGroup);
@@ -3122,7 +3129,7 @@ export function createRivalCourierMesh(
   }
   bodyTiltGroup.add(body, stripe, win);
 
-  // Golden Bonus Drop Crate floating on the Rival's target intersection!
+  // Brass Priority Drop Crate floating on the Rival's target intersection
   const bonusDropGroup = new THREE.Group();
   bonusDropGroup.position.set(rival.bonusDropPos.x, 0.65, rival.bonusDropPos.z);
   const crate = new THREE.Mesh(
@@ -3131,11 +3138,11 @@ export function createRivalCourierMesh(
   );
   const ring = new THREE.Mesh(
     getSharedGeo('riv_bonus_ring', () => new THREE.RingGeometry(0.62, 0.84, 24)),
-    getSharedBasicMat(0xffdf24, 0.9),
+    getSharedBasicMat(0xeab308, 0.9),
   );
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = -0.38;
-  const bonusOverviewBeam = createOverviewBeaconMesh(0xffdf24, 0xa855f7);
+  const bonusOverviewBeam = createOverviewBeaconMesh(0xeab308, 0x3b5b7e);
   bonusOverviewBeam.position.y = -0.36;
   bonusOverviewBeam.scale.set(0.88, 0.9, 0.88);
   bonusDropGroup.add(crate, ring, bonusOverviewBeam);
@@ -3191,21 +3198,20 @@ export function createCrashBurstMesh(): CrashBurstRig {
     return g;
   });
 
-  const outerMat = getCachedStandardMat(0xff3b2f, 0.25, 0.05, 0xff595e, 0.85);
-  const innerMat = getCachedStandardMat(0xffe524, 0.2, 0.05, 0xffdf24, 0.95);
-  const outlineMat = getCachedStandardMat(0x1d1205, 0.6, 0.02);
+  const outerMat = getCachedStandardMat(0xff551e, 0.3, 0.05, 0xff551e, 0.75);
+  const innerMat = getCachedStandardMat(0xf5f3ee, 0.25, 0.05, 0xf5f3ee, 0.85);
+  const outlineMat = getCachedStandardMat(0x181d23, 0.65, 0.05);
 
   const starBurstGroup = new THREE.Group();
-  // Tilted toward the elevated chase camera so the comic POW star reads clearly from above & behind!
   starBurstGroup.rotation.x = -Math.PI * 0.34;
 
   const starBackOutline = new THREE.Mesh(starGeo, outlineMat);
-  starBackOutline.scale.set(1.12, 1.12, 0.8);
+  starBackOutline.scale.set(1.08, 1.08, 0.8);
   starBackOutline.position.z = -0.03;
 
   const starOuter = new THREE.Mesh(starGeo, outerMat);
   const starInner = new THREE.Mesh(starGeo, innerMat);
-  starInner.scale.set(0.62, 0.62, 1.35);
+  starInner.scale.set(0.58, 0.58, 1.35);
   starInner.rotation.z = Math.PI / 8;
 
   starBurstGroup.add(starBackOutline, starOuter, starInner);
@@ -3216,9 +3222,9 @@ export function createCrashBurstMesh(): CrashBurstRig {
     () => new THREE.RingGeometry(0.46, 0.72, 24),
   );
   const shockRingMat = new THREE.MeshBasicMaterial({
-    color: 0xfff3b0,
+    color: 0xf5f3ee,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.9,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
@@ -3419,9 +3425,9 @@ export function createWindStreakMesh(): WindStreakRig {
   const root = new THREE.Group();
   root.visible = false;
 
-  const streakWhite = getSharedBasicMat(0xffffff, 0.86);
-  const streakCyan = getSharedBasicMat(0x70e4ff, 0.78);
-  const streakGold = getSharedBasicMat(0xffe524, 0.82);
+  const streakWhite = getSharedBasicMat(0xf5f3ee, 0.86);
+  const streakCyan = getSharedBasicMat(0xcbd5e1, 0.76);
+  const streakGold = getSharedBasicMat(0xff551e, 0.82);
 
   const ribbonGeo = getSharedGeo(
     'wind_ribbon',
@@ -3451,12 +3457,12 @@ export function createWindStreakMesh(): WindStreakRig {
 }
 
 /**
- * Gleaming 3D Arcade Gold Tip Coin tossed by celebrating customers onto the Courier Van roof!
+ * Brushed Nordic Brass Token tossed by customers onto the Courier Van roof
  */
 export function createSpinningCoinMesh(): THREE.Group {
   const g = new THREE.Group();
-  const coinGold = getCachedStandardMat(0xffe524, 0.22, 0.38, 0xf59e0b, 0.55);
-  const rimGold = getCachedStandardMat(0xff9f1c, 0.28, 0.32, 0xd97706, 0.35);
+  const coinGold = getCachedStandardMat(0xeab308, 0.28, 0.45, 0xca8a04, 0.4);
+  const rimGold = getCachedStandardMat(0xca8a04, 0.32, 0.38, 0xa16207, 0.28);
 
   const disc = new THREE.Mesh(
     getSharedGeo('tip_coin_disc', () => {
@@ -3478,4 +3484,85 @@ export function createSpinningCoinMesh(): THREE.Group {
   return g;
 }
 
+export interface CourierCallsignRig {
+  sprite: THREE.Sprite;
+  updateLabel: (callsign: string, accentHex: string) => void;
+  dispose: () => void;
+}
 
+/**
+ * Crisp dark-graphite architectural callsign nameplate sprite for remote multiplayer couriers.
+ */
+export function createCourierCallsignSprite(
+  initialCallsign: string,
+  initialAccentHex: string,
+): CourierCallsignRig {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.9, 0.475, 1);
+  sprite.renderOrder = 25;
+
+  let lastKey = '';
+  const draw = (callsign: string, accentHex: string) => {
+    const safeName = (callsign || 'COURIER').slice(0, 12).toUpperCase();
+    const key = `${safeName}|${accentHex}`;
+    if (key === lastKey) return;
+    lastKey = key;
+
+    ctx.clearRect(0, 0, 256, 64);
+
+    // Rounded dark-graphite tactical badge
+    const x = 14;
+    const y = 8;
+    const w = 228;
+    const h = 48;
+    const r = 12;
+
+    ctx.fillStyle = 'rgba(24, 29, 35, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(245, 243, 238, 0.28)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Courier accent color dot
+    ctx.fillStyle = accentHex || '#ff551e';
+    ctx.beginPath();
+    ctx.arc(x + 22, y + h / 2, 7.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crisp monospace/display callsign
+    ctx.fillStyle = '#f5f3ee';
+    ctx.font = '700 24px "Outfit", "IBM Plex Mono", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(safeName, x + 38, y + h / 2 + 1);
+
+    tex.needsUpdate = true;
+  };
+
+  draw(initialCallsign, initialAccentHex);
+
+  return {
+    sprite,
+    updateLabel: draw,
+    dispose: () => {
+      mat.dispose();
+      tex.dispose();
+    },
+  };
+}

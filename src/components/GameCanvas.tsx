@@ -5,6 +5,7 @@ import { pokoAudio } from '../game/audio';
 import {
   CitizenStopRig,
   CoffeeKioskRig,
+  CourierCallsignRig,
   CrashBurstRig,
   HazardRig,
   IslandBirdRig,
@@ -18,6 +19,7 @@ import {
   createCanalBoatMesh,
   createCitizenStopRig,
   createCoffeeKioskMesh,
+  createCourierCallsignSprite,
   createCrashBurstMesh,
   createDetailedPersonMesh,
   createDuckCrossingMesh,
@@ -38,10 +40,13 @@ import {
   createTreeMesh,
   createWindStreakMesh,
 } from '../game/meshes';
+import { multiplayerClient } from '../game/multiplayerClient';
+import type { MultiplayerRoomState } from '../game/multiplayerTypes';
 import {
   findForwardRoadPath,
   generateProceduralCity,
   gridToWorld,
+  isDrivableTile,
   worldToGrid,
 } from '../game/proceduralCity';
 import { VEHICLE_SPECS, computeRunRewards } from '../game/progression';
@@ -201,6 +206,49 @@ interface PooledCrashBurst {
   rig: CrashBurstRig;
 }
 
+interface RemoteCourierActor {
+  id: string;
+  callsign: string;
+  colorHex: string;
+  vehicleId: VehicleId;
+  topperId: TopperId;
+  rig: ToyTruckRig;
+  callsignRig: CourierCallsignRig;
+  tx: number;
+  ty: number;
+  tz: number;
+  tvx: number;
+  tvz: number;
+  tyaw: number;
+  speed: number;
+  steerAngle: number;
+  rollAngle: number;
+  pitchAngle: number;
+  isBraking: boolean;
+  isBoosting: boolean;
+  isDrifting: boolean;
+  hasBumperShield: boolean;
+  distanceTraveled: number;
+  hasPose: boolean;
+  rx: number;
+  ry: number;
+  rz: number;
+  ryaw: number;
+  bumpCooldown: number;
+}
+
+function toSafeVehicleId(raw: string): VehicleId {
+  return (Object.values(VehicleId) as string[]).includes(raw)
+    ? (raw as VehicleId)
+    : VehicleId.ClassicVan;
+}
+
+function toSafeTopperId(raw: string): TopperId {
+  return (Object.values(TopperId) as string[]).includes(raw)
+    ? (raw as TopperId)
+    : TopperId.Beacon;
+}
+
 export interface GameCanvasProps {
   phase: GamePhase;
   activeLevel: number;
@@ -210,6 +258,8 @@ export interface GameCanvasProps {
   selectedTopper: TopperId;
   walletCoins: number;
   startWithShield: boolean;
+  multiplayerRoom?: MultiplayerRoomState | null;
+  localClientId?: string;
   minimapRef: React.RefObject<MinimapSnapshot>;
   onHudUpdate: (hud: HudState) => void;
   onPhaseChange: (nextPhase: GamePhase) => void;
@@ -228,6 +278,8 @@ export function GameCanvas({
   selectedTopper,
   walletCoins,
   startWithShield,
+  multiplayerRoom = null,
+  localClientId = '',
   minimapRef,
   onHudUpdate,
   onPhaseChange,
@@ -248,6 +300,8 @@ export function GameCanvas({
   const topperRef = useRef(selectedTopper);
   const walletCoinsRef = useRef(walletCoins);
   const startShieldRef = useRef(startWithShield);
+  const mpRoomRef = useRef<MultiplayerRoomState | null>(multiplayerRoom);
+  const localClientIdRef = useRef<string>(localClientId);
   const onHudUpdateRef = useRef(onHudUpdate);
   const onPhaseChangeRef = useRef(onPhaseChange);
   const onRunFinishedRef = useRef(onRunFinished);
@@ -262,6 +316,8 @@ export function GameCanvas({
   topperRef.current = selectedTopper;
   walletCoinsRef.current = walletCoins;
   startShieldRef.current = startWithShield;
+  mpRoomRef.current = multiplayerRoom;
+  localClientIdRef.current = localClientId;
   onHudUpdateRef.current = onHudUpdate;
   onPhaseChangeRef.current = onPhaseChange;
   onRunFinishedRef.current = onRunFinished;
@@ -276,8 +332,12 @@ export function GameCanvas({
   const syncCosmeticsFnRef = useRef<
     ((veh: VehicleId, top: TopperId) => void) | null
   >(null);
+  const reconcileMpRoomFnRef = useRef<
+    ((room: MultiplayerRoomState | null) => void) | null
+  >(null);
   const prevLevelRef = useRef<number>(activeLevel);
   const prevNonceRef = useRef<number>(runNonce);
+  const prevSeedRef = useRef<number | null>(multiplayerRoom?.seed ?? null);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -320,16 +380,16 @@ export function GameCanvas({
     const onContextLost = (e: Event) => e.preventDefault();
     renderer.domElement.addEventListener('webglcontextlost', onContextLost);
 
-    // 2. Scene, Vivid Sky-Cerulean Water Backdrop & Studio Environment
+    // 2. Scene, Crisp Nordic Fjord Backdrop & Architectural Studio Environment
     const scene = new THREE.Scene();
-    const skyWaterHex = 0x4bb7ef;
+    const skyWaterHex = 0xcddbe4;
     scene.background = new THREE.Color(skyWaterHex);
-    scene.fog = new THREE.Fog(skyWaterHex, 58, 125);
+    scene.fog = new THREE.Fog(skyWaterHex, 58, 126);
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const envTarget = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
     scene.environment = envTarget.texture;
-    scene.environmentIntensity = 0.36;
+    scene.environmentIntensity = 0.42;
     pmremGenerator.dispose();
 
     // 3. Elevated Top-Down Heading-Up Chase Camera (miniature-diorama telephoto FOV behind the back of the van!)
@@ -344,12 +404,12 @@ export function GameCanvas({
     camera.position.set(0, CHASE_UP_HEIGHT, -CHASE_BACK_DIST);
     camera.lookAt(camLookTarget);
 
-    // 4. Warm/Cool Color-Temperature 3-Point Daylight Rig
-    const hemiLight = new THREE.HemisphereLight(0xd4f0ff, 0x9ed95c, 0.72);
+    // 4. Nordic Architectural 3-Point Daylight Rig
+    const hemiLight = new THREE.HemisphereLight(0xe4eff7, 0x7d8f76, 0.78);
     hemiLight.position.set(0, 40, 0);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfff2d2, 1.48);
+    const sunLight = new THREE.DirectionalLight(0xfff6ea, 1.52);
     sunLight.position.set(18, 32, 14);
     sunLight.castShadow = !isSoftwareGl;
     sunLight.shadow.mapSize.set(1024, 1024);
@@ -365,16 +425,16 @@ export function GameCanvas({
     scene.add(sunLight);
     scene.add(sunLight.target);
 
-    const rimLight = new THREE.DirectionalLight(0xbbe6ff, 0.38);
+    const rimLight = new THREE.DirectionalLight(0xd8eaf6, 0.38);
     rimLight.position.set(-16, 18, -18);
     scene.add(rimLight);
 
-    // Endless Sky-Cerulean Canal Water Plane
+    // Deep Slate-Teal Nordic Fjord Water Plane
     const waterGeo = new THREE.PlaneGeometry(260, 260);
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x3eaee8,
-      roughness: 0.32,
-      metalness: 0.04,
+      color: 0x4e6e82,
+      roughness: 0.24,
+      metalness: 0.08,
     });
     const waterPlane = new THREE.Mesh(waterGeo, waterMat);
     waterPlane.rotation.x = -Math.PI / 2;
@@ -401,72 +461,72 @@ export function GameCanvas({
 
     const sharedMats = {
       creamCurb: new THREE.MeshStandardMaterial({
-        color: 0xf6f5ed,
-        roughness: 0.65,
+        color: 0xe6e3dc,
+        roughness: 0.74,
         metalness: 0.02,
       }),
       grassLush: new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        roughness: 0.78,
-        metalness: 0.02,
+        roughness: 0.82,
+        metalness: 0.01,
         bumpMap: textures.clayBumpTex,
-        bumpScale: 0.008,
+        bumpScale: 0.006,
       }),
       plazaSurface: new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: textures.plazaPaverTex,
-        roughness: 0.64,
-        metalness: 0.03,
+        roughness: 0.72,
+        metalness: 0.02,
       }),
       outerMeadow: new THREE.MeshStandardMaterial({
-        color: 0xaee36d,
-        roughness: 0.82,
+        color: 0x809675,
+        roughness: 0.84,
         metalness: 0.01,
       }),
       innerRoad: new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: textures.innerPaverTex,
-        roughness: 0.68,
+        roughness: 0.74,
         metalness: 0.03,
       }),
       outerRoad: new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: textures.outerRoadTex,
-        roughness: 0.72,
+        roughness: 0.76,
         metalness: 0.03,
       }),
       woodBridge: new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: textures.woodBridgeTex,
-        roughness: 0.62,
-        metalness: 0.03,
+        roughness: 0.68,
+        metalness: 0.02,
       }),
       brickBase: new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        roughness: 0.68,
-        metalness: 0.03,
+        roughness: 0.74,
+        metalness: 0.02,
       }),
       crosswalkWhite: new THREE.MeshStandardMaterial({
-        color: 0xfbfdff,
-        roughness: 0.55,
+        color: 0xf5f3ee,
+        roughness: 0.6,
         metalness: 0.02,
       }),
       cloudWhite: new THREE.MeshStandardMaterial({
-        color: 0xfafeff,
-        roughness: 0.45,
+        color: 0xe8eff3,
+        roughness: 0.52,
         metalness: 0.0,
       }),
       boostPadMat: new THREE.MeshStandardMaterial({
-        color: 0x26d09c,
-        emissive: 0x10b981,
-        emissiveIntensity: 0.45,
-        roughness: 0.25,
+        color: 0x16a34a,
+        emissive: 0x15803d,
+        emissiveIntensity: 0.42,
+        roughness: 0.28,
       }),
       breadcrumbMat: new THREE.MeshStandardMaterial({
-        color: 0xff7b29,
-        emissive: 0xff9f1c,
-        emissiveIntensity: 0.52,
-        roughness: 0.25,
+        color: 0xff551e,
+        emissive: 0xea580c,
+        emissiveIntensity: 0.5,
+        roughness: 0.28,
       }),
       particleMat: new THREE.MeshBasicMaterial({
         color: 0xffffff,
@@ -550,7 +610,7 @@ export function GameCanvas({
     const flyingParcels: FlyingParcel[] = Array.from(
       { length: FLYING_PARCEL_POOL },
       () => {
-        const mesh = createMiniParcelMesh(0xf6be6d);
+        const mesh = createMiniParcelMesh(0xd8c3a5);
         mesh.visible = false;
         scene.add(mesh);
         return {
@@ -629,8 +689,8 @@ export function GameCanvas({
         ev.z,
         !ev.involvesPlayer ? 10 : isHeavy ? 24 : 14,
         ev.kind === 'rival'
-          ? [0xffdf24, 0xa855f7, 0xffffff, 0xff595e]
-          : [0xffdf24, 0xff595e, 0xffffff, 0xff9f1c, 0xcbd5e1],
+          ? [0xeab308, 0x3b5b7e, 0xf5f3ee, 0xff551e]
+          : [0xff551e, 0xf5f3ee, 0xeab308, 0x94a3b8],
         !ev.involvesPlayer ? 0.85 : isHeavy ? 1.35 : 0.98,
       );
     }
@@ -707,6 +767,154 @@ export function GameCanvas({
     let lastStartedLevel = -1;
     let demoState: DemoDirectorState = createDemoDirectorState();
     let demoSandboxCoins = walletCoinsRef.current;
+    const remoteCouriers = new Map<string, RemoteCourierActor>();
+    let lastMpTelemetryMs = 0;
+
+    function computeStaggeredSpawn(
+      baseX: number,
+      baseZ: number,
+      baseYaw: number,
+      slotIndex: number,
+    ): { x: number; z: number } {
+      if (slotIndex <= 0) return { x: baseX, z: baseZ };
+      const fwdX = Math.sin(baseYaw);
+      const fwdZ = Math.cos(baseYaw);
+      const rightX = -Math.cos(baseYaw);
+      const rightZ = Math.sin(baseYaw);
+      const backStep = Math.floor(slotIndex / 2) * 1.28 + (slotIndex % 2) * 0.42;
+      const sideStep = (slotIndex % 2 === 1 ? -1 : 1) * 0.32;
+      const candX = baseX - fwdX * backStep + rightX * sideStep;
+      const candZ = baseZ - fwdZ * backStep + rightZ * sideStep;
+      const gc = worldToGrid(candX, candZ, currentCity.totalGridSize);
+      const tile = currentCity.tiles[gc.row]?.[gc.col];
+      if (tile !== undefined && isDrivableTile(tile)) {
+        return { x: candX, z: candZ };
+      }
+      return { x: baseX, z: baseZ };
+    }
+
+    function disposeRemoteActor(actor: RemoteCourierActor) {
+      scene.remove(actor.rig.root);
+      actor.callsignRig.dispose();
+      for (const m of actor.rig.bodyMaterials) {
+        m.dispose();
+      }
+      actor.rig.taillightMat.dispose();
+    }
+
+    function reconcileRemoteCouriers(room: MultiplayerRoomState | null) {
+      if (!room || room.status === 'lobby' || demoState.active) {
+        for (const actor of remoteCouriers.values()) {
+          disposeRemoteActor(actor);
+        }
+        remoteCouriers.clear();
+        return;
+      }
+
+      const keepIds = new Set<string>();
+      for (const p of room.players) {
+        if (p.id !== localClientIdRef.current) {
+          keepIds.add(p.id);
+        }
+      }
+
+      for (const [id, actor] of remoteCouriers.entries()) {
+        if (!keepIds.has(id)) {
+          disposeRemoteActor(actor);
+          remoteCouriers.delete(id);
+        }
+      }
+
+      const remParcels = currentCity.stops.filter((s) => !s.delivered).length;
+      const baseSpawn = gridToWorld(
+        currentCity.spawnCoord,
+        currentCity.totalGridSize,
+      );
+
+      for (const p of room.players) {
+        if (p.id === localClientIdRef.current) continue;
+        const veh = toSafeVehicleId(p.vehicleId);
+        const top = toSafeTopperId(p.topperId);
+        let actor = remoteCouriers.get(p.id);
+        if (!actor) {
+          const rig = createToyTruckMesh(
+            textures.shadowDiscTex,
+            textures.clayBumpTex,
+            6,
+            veh,
+            top,
+          );
+          const callsignRig = createCourierCallsignSprite(
+            p.callsign,
+            p.colorHex,
+          );
+          callsignRig.sprite.position.set(0, 1.98, 0);
+          rig.root.add(callsignRig.sprite);
+
+          const staggered = computeStaggeredSpawn(
+            baseSpawn.x,
+            baseSpawn.z,
+            currentCity.spawnYaw,
+            p.slotIndex,
+          );
+          const initX = p.telemetry ? p.telemetry.x : staggered.x;
+          const initY = p.telemetry ? p.telemetry.y : 0;
+          const initZ = p.telemetry ? p.telemetry.z : staggered.z;
+          const initYaw = p.telemetry ? p.telemetry.yaw : currentCity.spawnYaw;
+          rig.root.position.set(initX, 0.24 + initY, initZ);
+          rig.root.rotation.y = initYaw;
+          scene.add(rig.root);
+
+          actor = {
+            id: p.id,
+            callsign: p.callsign,
+            colorHex: p.colorHex,
+            vehicleId: veh,
+            topperId: top,
+            rig,
+            callsignRig,
+            tx: initX,
+            ty: initY,
+            tz: initZ,
+            tvx: p.telemetry?.vx ?? 0,
+            tvz: p.telemetry?.vz ?? 0,
+            tyaw: initYaw,
+            speed: p.telemetry?.speed ?? 0,
+            steerAngle: p.telemetry?.steerAngle ?? 0,
+            rollAngle: p.telemetry?.rollAngle ?? 0,
+            pitchAngle: p.telemetry?.pitchAngle ?? 0,
+            isBraking: p.telemetry?.isBraking ?? false,
+            isBoosting: p.telemetry?.isBoosting ?? false,
+            isDrifting: p.telemetry?.isDrifting ?? false,
+            hasBumperShield: p.telemetry?.hasBumperShield ?? false,
+            distanceTraveled: p.telemetry?.distanceTraveled ?? 0,
+            hasPose: Boolean(p.telemetry),
+            rx: initX,
+            ry: initY,
+            rz: initZ,
+            ryaw: initYaw,
+            bumpCooldown: 0,
+          };
+          remoteCouriers.set(p.id, actor);
+        } else {
+          actor.callsign = p.callsign;
+          actor.colorHex = p.colorHex;
+          actor.callsignRig.updateLabel(p.callsign, p.colorHex);
+          if (actor.vehicleId !== veh) {
+            actor.vehicleId = veh;
+            actor.rig.setVehicleStyle(veh);
+          }
+          if (actor.topperId !== top) {
+            actor.topperId = top;
+            actor.rig.setTopper(top);
+          }
+        }
+
+        actor.rig.parcelBoxes.forEach((box, idx) => {
+          box.visible = idx < Math.min(6, remParcels);
+        });
+      }
+    }
 
     function awardRunCoins(delta: number) {
       if (delta <= 0) return;
@@ -805,6 +1013,18 @@ export function GameCanvas({
       snap.truckZ = truckState.z;
       snap.truckYaw = truckState.yaw;
       snap.activeStopIndex = activeStop ? activeStop.index : -1;
+      if (remoteCouriers.size > 0) {
+        snap.remotePlayers = Array.from(remoteCouriers.values()).map((a) => ({
+          id: a.id,
+          x: a.rx,
+          z: a.rz,
+          yaw: a.ryaw,
+          colorHex: a.colorHex,
+          callsign: a.callsign,
+        }));
+      } else {
+        snap.remotePlayers = undefined;
+      }
     }
 
     function refreshForwardRoadPath() {
@@ -971,39 +1191,39 @@ export function GameCanvas({
 
     function applyAtmosphereRig(atm: ShiftAtmosphere) {
       if (atm === ShiftAtmosphere.GoldenSunset) {
-        scene.background = new THREE.Color(0xf4976c);
-        scene.fog = new THREE.Fog(0xf4976c, 58, 128);
-        waterMat.color.setHex(0x2b8cbe);
-        sunLight.color.setHex(0xffb36b);
-        sunLight.intensity = 1.62;
-        hemiLight.color.setHex(0xffd6a5);
-        hemiLight.groundColor.setHex(0x8ab17d);
-        hemiLight.intensity = 0.78;
-        rimLight.color.setHex(0xfde68a);
-        rimLight.intensity = 0.44;
+        scene.background = new THREE.Color(0xdecbc0);
+        scene.fog = new THREE.Fog(0xdecbc0, 58, 128);
+        waterMat.color.setHex(0x3d596b);
+        sunLight.color.setHex(0xffb978);
+        sunLight.intensity = 1.64;
+        hemiLight.color.setHex(0xf7dcc4);
+        hemiLight.groundColor.setHex(0x707e6a);
+        hemiLight.intensity = 0.76;
+        rimLight.color.setHex(0xfce1b6);
+        rimLight.intensity = 0.42;
         truckRig.headlightCones.visible = false;
       } else if (atm === ShiftAtmosphere.TwilightNeon) {
-        scene.background = new THREE.Color(0x1d3557);
-        scene.fog = new THREE.Fog(0x1d3557, 54, 122);
-        waterMat.color.setHex(0x152844);
-        sunLight.color.setHex(0xa8dadc);
-        sunLight.intensity = 0.96;
-        hemiLight.color.setHex(0x5289b5);
-        hemiLight.groundColor.setHex(0x2b4560);
-        hemiLight.intensity = 0.92;
-        rimLight.color.setHex(0xf72585);
-        rimLight.intensity = 0.45;
+        scene.background = new THREE.Color(0x1b2634);
+        scene.fog = new THREE.Fog(0x1b2634, 54, 122);
+        waterMat.color.setHex(0x121b26);
+        sunLight.color.setHex(0xb8d0e4);
+        sunLight.intensity = 0.98;
+        hemiLight.color.setHex(0x4b6b88);
+        hemiLight.groundColor.setHex(0x233140);
+        hemiLight.intensity = 0.9;
+        rimLight.color.setHex(0xfbbf77);
+        rimLight.intensity = 0.4;
         truckRig.headlightCones.visible = true;
       } else {
-        scene.background = new THREE.Color(0x4bb7ef);
-        scene.fog = new THREE.Fog(0x4bb7ef, 58, 125);
-        waterMat.color.setHex(0x3eaee8);
-        sunLight.color.setHex(0xfff2d2);
-        sunLight.intensity = 1.48;
-        hemiLight.color.setHex(0xd4f0ff);
-        hemiLight.groundColor.setHex(0x9ed95c);
-        hemiLight.intensity = 0.72;
-        rimLight.color.setHex(0xbbe6ff);
+        scene.background = new THREE.Color(0xcddbe4);
+        scene.fog = new THREE.Fog(0xcddbe4, 58, 126);
+        waterMat.color.setHex(0x4e6e82);
+        sunLight.color.setHex(0xfff6ea);
+        sunLight.intensity = 1.52;
+        hemiLight.color.setHex(0xe4eff7);
+        hemiLight.groundColor.setHex(0x7d8f76);
+        hemiLight.intensity = 0.78;
+        rimLight.color.setHex(0xd8eaf6);
         rimLight.intensity = 0.38;
         truckRig.headlightCones.visible = false;
       }
@@ -1012,7 +1232,14 @@ export function GameCanvas({
     function buildCityScene(lvl: number, resetScore: boolean) {
       clearAllInputs();
       disposeLevelGroup();
-      currentCity = generateProceduralCity(lvl);
+      const activeMpRoom =
+        !demoState.active &&
+        mpRoomRef.current &&
+        (mpRoomRef.current.status === 'playing' ||
+          mpRoomRef.current.status === 'finished')
+          ? mpRoomRef.current
+          : null;
+      currentCity = generateProceduralCity(lvl, activeMpRoom?.seed);
       const grantShield =
         !demoState.active &&
         startShieldRef.current &&
@@ -1028,6 +1255,21 @@ export function GameCanvas({
         activeVeh,
         grantShield,
       );
+      if (activeMpRoom) {
+        const selfPl = activeMpRoom.players.find(
+          (p) => p.id === localClientIdRef.current,
+        );
+        if (selfPl && selfPl.slotIndex > 0) {
+          const stag = computeStaggeredSpawn(
+            truckState.x,
+            truckState.z,
+            truckState.yaw,
+            selfPl.slotIndex,
+          );
+          truckState.x = stag.x;
+          truckState.z = stag.z;
+        }
+      }
       if (grantShield) {
         onConsumeStartShieldRef.current();
       }
@@ -1043,7 +1285,9 @@ export function GameCanvas({
       comboTimer = 0;
       maxCombo = 0;
       bullseyeCount = 0;
-      timeRemainingSec = currentCity.config.timeLimitSec;
+      timeRemainingSec = activeMpRoom
+        ? activeMpRoom.timeRemainingSec
+        : currentCity.config.timeLimitSec;
       elapsedSec = 0;
       hitstopTimer = 0;
       cameraTrauma = 0;
@@ -1133,7 +1377,7 @@ export function GameCanvas({
           capInst.setMatrixAt(idx, _mat4);
 
           _color.setHex(
-            g.isMeadow ? 0xb4e875 : idx % 2 === 0 ? 0xa3de60 : 0xace36a,
+            g.isMeadow ? 0x869c7b : idx % 2 === 0 ? 0x7d9472 : 0x839a78,
           );
           capInst.setColorAt(idx, _color);
         });
@@ -1227,7 +1471,7 @@ export function GameCanvas({
 
       // 5. Instanced Multi-Colored Courtyard Toy Brick Walls (3 alternating bricks per segment just like reference!)
       if (currentCity.brickWalls.length > 0) {
-        const brickSubColors = [0xf8c94e, 0xdc7e44, 0x5ba85d, 0xf5dc93];
+        const brickSubColors = [0xe4dfd5, 0xd4cdc0, 0xc84b31, 0x8c959e];
         const totalBricks = currentCity.brickWalls.length * 3;
         const brickInst = new THREE.InstancedMesh(
           sharedGeos.brickSeg,
@@ -1372,6 +1616,22 @@ export function GameCanvas({
         citizenRigs.push(rig);
       }
 
+      if (activeMpRoom) {
+        for (const claimed of Object.values(activeMpRoom.claimedStops)) {
+          const st = currentCity.stops[claimed.stopIndex - 1];
+          const cRig = citizenRigs[claimed.stopIndex - 1];
+          if (st) {
+            st.delivered = true;
+            st.deliveredViaToss = claimed.viaExpressToss;
+          }
+          if (cRig) {
+            cRig.deliveredParcel.visible = true;
+            cRig.pinSprite.visible = false;
+            cRig.padGroup.visible = false;
+          }
+        }
+      }
+
       // 10. Dynamic Traffic & Bridge Gate Hazards
       for (const h of currentCity.hazards) {
         const hRig = createHazardMesh(h, textures.shadowDiscTex);
@@ -1431,11 +1691,11 @@ export function GameCanvas({
 
       // 13. Flocking 3D Songbirds & Harbor Seagulls circling parks, trees, and canals!
       const birdPalettes: [number, number][] = [
-        [0x70d6ff, 0x1d4ed8], // Sky bluebird
-        [0xffe524, 0xf59e0b], // Sunny goldfinch
-        [0xff8fab, 0xe11d48], // Coral blossom robin
-        [0x9ef01a, 0x15803d], // Meadow parakeet
-        [0xfefae0, 0x64748b], // Harbor seagull
+        [0xf5f3ee, 0x64748b], // Nordic gull
+        [0xe2e8f0, 0x334155], // Arctic tern
+        [0xfaf8f5, 0xc84b31], // Coastal oystercatcher
+        [0xdbe4eb, 0x475569], // Fjord swallow
+        [0xf8fafc, 0x475569], // Harbor gull
       ];
       const islandHalfSpan = (currentCity.totalGridSize * TILE_SIZE) * 0.42;
       const birdCount = 9;
@@ -1482,19 +1742,24 @@ export function GameCanvas({
 
       // Initialize 3 - 2 - 1 - GO! Bird's-Eye Island Overview Swoop when starting a Playing shift!
       if (phaseRef.current === GamePhase.Playing) {
-        const isSameStageRetry = lastStartedLevel === lvl;
-        const cdMode: CountdownMode = demoState.active
-          ? 'quick'
-          : isSameStageRetry
-            ? 'quick'
-            : 'full';
-        if (!demoState.active) {
-          lastStartedLevel = lvl;
-        }
-        countdownState = createStartCountdownState(cdMode);
-        pokoAudio.playCountdownBeep(3);
-        if (currentCity.config.atmosphere !== ShiftAtmosphere.TwilightNeon) {
-          pokoAudio.playBirdChirp(0.7);
+        if (activeMpRoom && activeMpRoom.countdownSec <= 0.15) {
+          countdownState = createStartCountdownState('instant');
+        } else {
+          const isSameStageRetry = lastStartedLevel === lvl;
+          const cdMode: CountdownMode =
+            activeMpRoom || demoState.active
+              ? 'quick'
+              : isSameStageRetry
+                ? 'quick'
+                : 'full';
+          if (!demoState.active) {
+            lastStartedLevel = lvl;
+          }
+          countdownState = createStartCountdownState(cdMode);
+          pokoAudio.playCountdownBeep(3);
+          if (currentCity.config.atmosphere !== ShiftAtmosphere.TwilightNeon) {
+            pokoAudio.playBirdChirp(0.7);
+          }
         }
       } else {
         countdownState = createStartCountdownState('instant');
@@ -1540,6 +1805,7 @@ export function GameCanvas({
       waterPlane.position.set(camLookTarget.x, 0.0, camLookTarget.z);
       sunLight.position.set(camLookTarget.x + 18, 32, camLookTarget.z + 14);
       sunLight.target.position.copy(camLookTarget);
+      reconcileRemoteCouriers(mpRoomRef.current);
       syncTruckParcelStack();
       refreshForwardRoadPath();
       emitHudSnapshot();
@@ -1585,10 +1851,149 @@ export function GameCanvas({
         emitHudSnapshot();
       }
     };
+    reconcileMpRoomFnRef.current = reconcileRemoteCouriers;
+
+    multiplayerClient.setCanvasHandlers({
+      onPeerTelemetry: (peers) => {
+        if (demoState.active) return;
+        for (const peer of peers) {
+          if (!remoteCouriers.has(peer.id) && mpRoomRef.current) {
+            reconcileRemoteCouriers(mpRoomRef.current);
+          }
+          const actor = remoteCouriers.get(peer.id);
+          if (!actor) continue;
+          const veh = toSafeVehicleId(peer.vehicleId);
+          const top = toSafeTopperId(peer.topperId);
+          if (actor.vehicleId !== veh) {
+            actor.vehicleId = veh;
+            actor.rig.setVehicleStyle(veh);
+          }
+          if (actor.topperId !== top) {
+            actor.topperId = top;
+            actor.rig.setTopper(top);
+          }
+          const t = peer.telemetry;
+          actor.tx = t.x;
+          actor.ty = t.y;
+          actor.tz = t.z;
+          actor.tvx = t.vx;
+          actor.tvz = t.vz;
+          actor.tyaw = t.yaw;
+          actor.speed = t.speed;
+          actor.steerAngle = t.steerAngle;
+          actor.rollAngle = t.rollAngle;
+          actor.pitchAngle = t.pitchAngle;
+          actor.isBraking = t.isBraking;
+          actor.isBoosting = t.isBoosting;
+          actor.isDrifting = t.isDrifting;
+          actor.hasBumperShield = t.hasBumperShield;
+          actor.distanceTraveled = t.distanceTraveled;
+          if (!actor.hasPose) {
+            actor.rx = t.x;
+            actor.ry = t.y;
+            actor.rz = t.z;
+            actor.ryaw = t.yaw;
+            actor.hasPose = true;
+          }
+        }
+      },
+      onRoomClock: ({ countdownSec, timeRemainingSec: srvTime }) => {
+        if (demoState.active || mpRoomRef.current?.status !== 'playing') return;
+        if (Math.abs(timeRemainingSec - srvTime) > 1.15) {
+          timeRemainingSec = srvTime;
+        }
+        if (countdownSec <= 0 && countdownState.isFrozen) {
+          countdownState.remainingSec = 0.02;
+        }
+      },
+      onRemoteHorn: ({ x, z }) => {
+        if (demoState.active) return;
+        const dist = Math.hypot(x - truckState.x, z - truckState.z);
+        if (dist < 40) {
+          pokoAudio.playMusicalHorn();
+          spawnParticleBurst(
+            x,
+            0.95,
+            z,
+            8,
+            [0xf5f3ee, 0xeab308, 0xff551e],
+            0.75,
+          );
+        }
+      },
+      onStopClaimed: ({ claim, timeRemainingSec: srvTime }) => {
+        if (demoState.active) return;
+        timeRemainingSec = srvTime;
+        if (claim.claimedById === localClientIdRef.current) return;
+
+        const stopIdx = claim.stopIndex - 1;
+        const st = currentCity.stops[stopIdx];
+        if (!st || st.delivered) return;
+
+        st.delivered = true;
+        st.deliveredViaToss = claim.viaExpressToss;
+        truckState.fragileIntact = true;
+        truckState.thermalTimer = truckState.thermalMaxSec;
+        syncTruckParcelStack();
+        lastPathCalcTime = -1;
+        refreshForwardRoadPath();
+
+        const cRig = citizenRigs[stopIdx];
+        const cw = gridToWorld(st.citizenCoord, currentCity.totalGridSize);
+        const targetX = st.liveCitizenX ?? cw.x;
+        const targetZ = st.liveCitizenZ ?? cw.z;
+
+        const fp =
+          flyingParcels.find((item) => !item.active) ?? flyingParcels[0];
+        fp.active = true;
+        fp.t = 0;
+        fp.duration = claim.viaExpressToss ? 0.34 : 0.24;
+        fp.sx = claim.fromX;
+        fp.sy = claim.fromY;
+        fp.sz = claim.fromZ;
+        fp.tx = targetX;
+        fp.ty = 0.65;
+        fp.tz = targetZ;
+        fp.mesh.visible = true;
+        fp.onLand = () => {
+          if (cRig) {
+            cRig.deliveredParcel.visible = true;
+            cRig.pinSprite.visible = false;
+            cRig.padGroup.visible = false;
+          }
+          spawnParticleBurst(
+            targetX,
+            1.0,
+            targetZ,
+            claim.isBullseye ? 20 : 14,
+            [0xff551e, 0xf5f3ee, 0xeab308, 0x16a34a],
+            1.15,
+          );
+        };
+
+        if (Math.hypot(claim.fromX - truckState.x, claim.fromZ - truckState.z) < 38) {
+          pokoAudio.playDeliverySuccess(1, claim.viaExpressToss, claim.isBullseye);
+        }
+
+        bannerEvent = {
+          id: ++bannerSeq,
+          label: `${claim.claimedByCallsign} Claimed #${claim.stopIndex}`,
+          detail: `+${claim.pointsAwarded} pts · Rerouting Next Stop`,
+          tone: 'amber',
+        };
+        bannerTimer = 1.95;
+        emitHudSnapshot();
+      },
+    });
+
     buildCityScene(levelRef.current, true);
 
     // 5. Unified Input Listeners (held vs justPressed, Space buffer, focus-loss reset, pointer steer)
     const onKeyDown = (e: KeyboardEvent) => {
+      const targetTag = (e.target as HTMLElement | null)?.tagName;
+      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA') {
+        return;
+      }
       if (
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(
           e.code,
@@ -1818,7 +2223,7 @@ export function GameCanvas({
           1.0,
           targetZ,
           isBullseye ? 24 : 18,
-          [0xffd166, 0xff70a6, 0x70d6ff, 0x9ef01a],
+          [0xff551e, 0xf5f3ee, 0xeab308, 0x16a34a],
           isBullseye ? 1.35 : 1.15,
         );
 
@@ -1838,6 +2243,20 @@ export function GameCanvas({
           fc.mesh.visible = false;
         }
       };
+
+      if (!demoState.active && mpRoomRef.current?.status === 'playing') {
+        multiplayerClient.sendStopClaim({
+          stopIndex: activeStop.index,
+          viaExpressToss,
+          isBullseye,
+          pointsRequested: reward.pointsAwarded + boomerangBonusPts,
+          timeBonusSec: reward.timeBonusSec + boomerangTimeSec,
+          ticketsCount: truckState.ticketsCount,
+          fromX: truckState.x,
+          fromY: 1.25 + truckState.y,
+          fromZ: truckState.z,
+        });
+      }
 
       emitHudSnapshot();
     }
@@ -1990,7 +2409,7 @@ export function GameCanvas({
               0.7,
               truckState.z,
               18,
-              [0xffe524, 0x38bdf8, 0xff70a6, 0xffffff],
+              [0xff551e, 0xf5f3ee, 0xeab308, 0x3b5b7e],
               1.1,
             );
           }
@@ -2279,6 +2698,9 @@ export function GameCanvas({
             );
             if (hornRes) {
               pokoAudio.playMusicalHorn();
+              if (!demoState.active && mpRoomRef.current?.status === 'playing') {
+                multiplayerClient.sendHorn(truckState.x, truckState.z);
+              }
               truckState.squashY = 1.12;
               truckState.squashVel = -2.0;
               if (hornRes.calmedScooters > 0 || hornRes.hurriedDucks > 0) {
@@ -2656,7 +3078,7 @@ export function GameCanvas({
               0.9,
               currentCity.rivalCourier.bonusDropPos.z,
               22,
-              [0xffdf24, 0xa855f7, 0xffffff],
+              [0xeab308, 0x3b5b7e, 0xf5f3ee],
               1.3,
             );
             emitHudSnapshot();
@@ -2802,7 +3224,7 @@ export function GameCanvas({
                 0.35 + truckState.y,
                 truckState.z - Math.cos(truckState.yaw) * 0.9,
                 2,
-                [0xffdf24, 0xff70a6, 0x38bdf8, 0x9ef01a],
+                [0xff551e, 0xeab308, 0xf5f3ee, 0x16a34a],
                 0.45,
               );
             }
@@ -2816,47 +3238,165 @@ export function GameCanvas({
                 3.2,
                 truckState.z + (Math.random() - 0.5) * 14,
                 2,
-                [0xbae6fd, 0x7dd3fc],
+                [0xcbd5e1, 0x94a3b8],
                 0.35,
               );
             }
           }
 
-          // Check Victory / Defeat Outcome
-          const outcome = evaluateRunStatus(
-            currentCity.stops,
-            timeRemainingSec,
-            truckState.health,
-          );
-          if (outcome !== OutcomeKind.None) {
-            pendingOutcome = outcome;
-            finishDelayTimer = outcome === OutcomeKind.Victory ? 1.55 : 0.52;
-            victoryOrbitAngle = 0;
-            victoryConfettiAccum = 0;
-            pokoAudio.setFeverMode(false);
-            if (outcome === OutcomeKind.Victory) {
-              // Time-left mastery bonus + Stage Clear Confetti Finale!
-              score += Math.round(timeRemainingSec * 15);
+          // Multiplayer Live Telemetry Broadcast, Van-to-Van Bumper Physics & Field Tow Repair
+          const inLiveMpShift =
+            !demoState.active && mpRoomRef.current?.status === 'playing';
+          if (inLiveMpShift) {
+            if (now - lastMpTelemetryMs >= 66) {
+              lastMpTelemetryMs = now;
+              multiplayerClient.sendTelemetry(
+                {
+                  x: truckState.x,
+                  y: truckState.y,
+                  z: truckState.z,
+                  vx: truckState.vx,
+                  vz: truckState.vz,
+                  yaw: truckState.yaw,
+                  speed: truckState.speed,
+                  steerAngle: truckState.steerAngle,
+                  rollAngle: truckState.rollAngle,
+                  pitchAngle: truckState.pitchAngle,
+                  isBraking: truckState.isBraking,
+                  isBoosting: truckState.boostTimer > 0,
+                  isDrifting: truckState.isDrifting,
+                  hasBumperShield: truckState.hasBumperShield,
+                  distanceTraveled: truckState.distanceTraveled,
+                },
+                truckState.ticketsCount,
+              );
+            }
+
+            // Solid 3D Van-to-Van Bumper Separation against Remote Couriers
+            for (const actor of remoteCouriers.values()) {
+              if (!actor.hasPose) continue;
+              if (actor.bumpCooldown > 0) {
+                actor.bumpCooldown = Math.max(0, actor.bumpCooldown - simDt);
+              }
+              const dx = truckState.x - actor.rx;
+              const dz = truckState.z - actor.rz;
+              const dist = Math.hypot(dx, dz);
+              if (
+                dist < 1.32 &&
+                dist > 0.001 &&
+                Math.abs(truckState.y - actor.ry) < 0.85
+              ) {
+                const nx = dx / dist;
+                const nz = dz / dist;
+                const overlap = 1.32 - dist;
+                const pushX = truckState.x + nx * overlap * 0.65;
+                const pushZ = truckState.z + nz * overlap * 0.65;
+                const gc = worldToGrid(pushX, pushZ, currentCity.totalGridSize);
+                const tile = currentCity.tiles[gc.row]?.[gc.col];
+                if (tile !== undefined && isDrivableTile(tile)) {
+                  truckState.x = pushX;
+                  truckState.z = pushZ;
+                }
+                truckState.vx += nx * 3.2;
+                truckState.vz += nz * 3.2;
+                if (actor.bumpCooldown <= 0) {
+                  actor.bumpCooldown = 0.55;
+                  truckState.squashY = 1.14;
+                  truckState.squashVel = -2.4;
+                  cameraTrauma = Math.max(cameraTrauma, 0.32);
+                  pokoAudio.playCrashImpact('bump', 'rival');
+                  spawnCrashBurstEffect({
+                    x: (truckState.x + actor.rx) * 0.5,
+                    y: 0.35 + truckState.y,
+                    z: (truckState.z + actor.rz) * 0.5,
+                    nx,
+                    nz,
+                    severity: 'bump',
+                    kind: 'rival',
+                    involvesPlayer: true,
+                    label: `Bumped ${actor.callsign}!`,
+                  });
+                }
+              }
+            }
+
+            // In Multiplayer, zero hull triggers an instant Field Tow Repair instead of ending the whole room's shift
+            if (truckState.health <= 0) {
+              truckState.health = truckState.maxHealth;
+              truckState.invulnTimer = 2.0;
+              truckState.speed *= 0.35;
+              score = Math.max(0, score - 80);
+              combo = 0;
+              comboTimer = 0;
+              pokoAudio.setFeverMode(false);
+              pokoAudio.playMechanicWrench();
+              bannerEvent = {
+                id: ++bannerSeq,
+                label: 'Emergency Field Repair',
+                detail: '-80 pts · Hull Restored!',
+                tone: 'amber',
+              };
+              bannerTimer = 1.85;
+              emitHudSnapshot();
+            }
+          }
+
+          // Check Victory / Defeat Outcome (Solo Mode Only — Server authoritatively ends Multiplayer shifts!)
+          if (!demoState.active && mpRoomRef.current) {
+            // If all stops were just delivered in MP, celebrate locally while awaiting match:finished packet
+            const allDone = currentCity.stops.every((s) => s.delivered);
+            if (allDone && pendingOutcome === OutcomeKind.None) {
+              pendingOutcome = OutcomeKind.Victory;
+              finishDelayTimer = 2.5;
+              victoryOrbitAngle = 0;
+              victoryConfettiAccum = 0;
+              pokoAudio.setFeverMode(false);
               pokoAudio.playStageClear();
               spawnParticleBurst(
                 truckState.x,
                 1.4,
                 truckState.z,
                 28,
-                [0xffe524, 0xff70a6, 0x38bdf8, 0x9ef01a, 0xa855f7],
+                [0xff551e, 0xf5f3ee, 0xeab308, 0x16a34a, 0x3b5b7e],
                 1.45,
               );
-              bannerEvent = {
-                id: ++bannerSeq,
-                label: 'Stage Complete!',
-                detail: 'All Parcels Delivered!',
-                tone: 'emerald',
-              };
-              bannerTimer = 1.6;
-            } else {
-              pokoAudio.playGameOver();
             }
-            emitHudSnapshot();
+          } else {
+            const outcome = evaluateRunStatus(
+              currentCity.stops,
+              timeRemainingSec,
+              truckState.health,
+            );
+            if (outcome !== OutcomeKind.None) {
+              pendingOutcome = outcome;
+              finishDelayTimer = outcome === OutcomeKind.Victory ? 1.55 : 0.52;
+              victoryOrbitAngle = 0;
+              victoryConfettiAccum = 0;
+              pokoAudio.setFeverMode(false);
+              if (outcome === OutcomeKind.Victory) {
+                // Time-left mastery bonus + Stage Clear Confetti Finale!
+                score += Math.round(timeRemainingSec * 15);
+                pokoAudio.playStageClear();
+                spawnParticleBurst(
+                  truckState.x,
+                  1.4,
+                  truckState.z,
+                  28,
+                  [0xff551e, 0xf5f3ee, 0xeab308, 0x16a34a, 0x3b5b7e],
+                  1.45,
+                );
+                bannerEvent = {
+                  id: ++bannerSeq,
+                  label: 'Stage Complete!',
+                  detail: 'All Parcels Delivered!',
+                  tone: 'emerald',
+                };
+                bannerTimer = 1.6;
+              } else {
+                pokoAudio.playGameOver();
+              }
+              emitHudSnapshot();
+            }
           }
         } else if (finishDelayTimer >= 0) {
           finishDelayTimer -= dt;
@@ -2872,14 +3412,14 @@ export function GameCanvas({
                 1.5,
                 truckState.z + (Math.random() - 0.5) * 2.4,
                 16,
-                [0xffe524, 0xff70a6, 0x38bdf8, 0x9ef01a, 0xffffff],
+                [0xff551e, 0xf5f3ee, 0xeab308, 0x16a34a, 0x3b5b7e],
                 1.25,
               );
             }
           }
           if (finishDelayTimer <= 0) {
-            if (demoState.active) {
-              // Hold celebratory confetti & Victory Orbit inside the demo until 45s completes!
+            if (demoState.active || Boolean(mpRoomRef.current)) {
+              // Hold celebratory confetti & Victory Orbit inside demo or until MP server sends match:finished!
               finishDelayTimer = 0.25;
             } else {
               finishDelayTimer = -1;
@@ -3144,6 +3684,58 @@ export function GameCanvas({
         windStreakRig.rightRibbon.position.z = -streakSlide * 0.85;
         windStreakRig.leftRibbon.scale.set(1, 1, 0.65 + wsPulse * 0.65);
         windStreakRig.rightRibbon.scale.set(1, 1, 0.65 + wsPulse * 0.65);
+      }
+
+      // Smoothly interpolate & animate Remote Multiplayer 3D Courier Vans!
+      if (remoteCouriers.size > 0) {
+        const interpAlpha = 1 - Math.exp(-14 * dt);
+        const remStopsCount = currentCity.stops.filter((s) => !s.delivered).length;
+        for (const actor of remoteCouriers.values()) {
+          if (currentPhase === GamePhase.Playing) {
+            actor.tx += actor.tvx * dt * 0.45;
+            actor.tz += actor.tvz * dt * 0.45;
+          }
+          actor.rx += (actor.tx - actor.rx) * interpAlpha;
+          actor.ry += (actor.ty - actor.ry) * interpAlpha;
+          actor.rz += (actor.tz - actor.rz) * interpAlpha;
+          actor.ryaw = wrapAngleRad(
+            actor.ryaw + wrapAngleRad(actor.tyaw - actor.ryaw) * interpAlpha,
+          );
+
+          actor.rig.root.position.set(actor.rx, 0.24 + actor.ry, actor.rz);
+          actor.rig.root.rotation.y = actor.ryaw;
+          actor.rig.shadowMesh.position.y = 0.025 - actor.ry;
+          const rAirScale = Math.max(0.62, 1 - actor.ry * 0.22);
+          actor.rig.shadowMesh.scale.set(rAirScale, rAirScale, 1);
+
+          actor.rig.shieldRing.visible = actor.hasBumperShield;
+          if (actor.hasBumperShield) {
+            actor.rig.shieldRing.rotation.z = visualClock * 1.8;
+          }
+          actor.rig.topperPivot.rotation.y = Math.sin(visualClock * 2.4) * 0.16;
+
+          const rBob =
+            actor.ry > 0.05
+              ? 0
+              : Math.abs(Math.sin(actor.distanceTraveled * 2.8)) *
+                Math.min(1, actor.speed / 5) *
+                0.05;
+          actor.rig.bodyTiltGroup.position.y = rBob;
+          actor.rig.bodyTiltGroup.rotation.z = actor.rollAngle;
+          actor.rig.bodyTiltGroup.rotation.x = actor.pitchAngle;
+
+          for (const sg of actor.rig.frontWheelSteerGroups) {
+            sg.rotation.y = actor.steerAngle;
+          }
+          for (const w of actor.rig.wheels) {
+            w.rotation.x = actor.distanceTraveled * 2.4;
+          }
+          actor.rig.taillightMat.emissiveIntensity = actor.isBraking ? 1.9 : 0.45;
+
+          actor.rig.parcelBoxes.forEach((box, idx) => {
+            box.visible = idx < Math.min(6, remStopsCount);
+          });
+        }
       }
 
       // Overview Sky-Beacons scale tall during 3-2-1 Bird's-Eye Swoop and tuck down smoothly when driving!
@@ -3651,6 +4243,11 @@ export function GameCanvas({
       window.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
 
+      multiplayerClient.setCanvasHandlers({});
+      for (const actor of remoteCouriers.values()) {
+        disposeRemoteActor(actor);
+      }
+      remoteCouriers.clear();
       disposeLevelGroup();
       for (const cb of crashBursts) {
         cb.rig.shockRingMat.dispose();
@@ -3668,18 +4265,35 @@ export function GameCanvas({
     };
   }, []);
 
-  // Trigger clean level rebuild when activeLevel or runNonce changes without tearing down WebGLRenderer!
+  // Trigger clean level rebuild when activeLevel, runNonce, or multiplayer seed changes without tearing down WebGLRenderer!
+  const activeMpSeed =
+    multiplayerRoom &&
+    (multiplayerRoom.status === 'playing' ||
+      multiplayerRoom.status === 'finished')
+      ? multiplayerRoom.seed
+      : null;
+
   useEffect(() => {
     if (
       prevLevelRef.current !== activeLevel ||
-      prevNonceRef.current !== runNonce
+      prevNonceRef.current !== runNonce ||
+      prevSeedRef.current !== activeMpSeed
     ) {
-      const resetScore = activeLevel === 1 || prevNonceRef.current !== runNonce;
+      const resetScore =
+        activeLevel === 1 ||
+        prevNonceRef.current !== runNonce ||
+        prevSeedRef.current !== activeMpSeed;
       prevLevelRef.current = activeLevel;
       prevNonceRef.current = runNonce;
+      prevSeedRef.current = activeMpSeed;
       loadLevelFnRef.current?.(activeLevel, resetScore);
     }
-  }, [activeLevel, runNonce]);
+  }, [activeLevel, runNonce, activeMpSeed]);
+
+  // Reconcile remote 3D couriers whenever room players/cosmetics/callsigns update!
+  useEffect(() => {
+    reconcileMpRoomFnRef.current?.(multiplayerRoom);
+  }, [multiplayerRoom, localClientId]);
 
   // Swap 3D vehicle body & roof topper live when equipped in Garage Shop!
   useEffect(() => {
@@ -3690,7 +4304,7 @@ export function GameCanvas({
     <div
       ref={mountRef}
       className="fixed inset-0 w-full h-full overflow-hidden"
-      aria-label="Poko Parcel 3D Toy City Viewport"
+      aria-label="Courier Field 3D Architectural Diorama Viewport"
     />
   );
 }
